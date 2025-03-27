@@ -10,8 +10,15 @@ notes for chess.
 
 ## Features
 
-*   **Notepad Features** Keyboard with numbers 1-8 and letters a-h for recording chess move notation, main keyboard for note taking, bulleted lists for reminders, camera option, upload images option, marker option, AI analysis option.
-*   **Folder Selection:** Create folders for each game to organize notes with each game, storing context and data.
+*   **Notepad Features**
+    * Keyboard with numbers 1-8 and letters a-h for recording chess move notation
+    * Main keyboard for note taking
+    * Bulleted lists for reminders
+    * Camera option
+    * Upload images option
+    * Marker option
+    * AI analysis option.
+*   **Folder Selection + Creation:** Create folders for each game to organize notes with each game, storing context and data.
 *   **Sharing:** Creatable links to share chess studies with friends, with ability to make private and public studies
     
 ## Tech Stack
@@ -43,3 +50,5 @@ for game.
 
 *   Phones
 *   Tablets
+
+(Portability is a concern!)
