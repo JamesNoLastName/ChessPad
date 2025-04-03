@@ -30,7 +30,22 @@ import androidx.compose.ui.unit.sp
 import com.example.chesspad.ui.theme.ChessPadTheme
 import kotlinx.coroutines.delay
 
-data class ChessGame(val title: String, val date: String, val moves: String)
+// Google Maps Compose imports
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.rememberCameraPositionState
+import com.google.maps.android.compose.rememberMarkerState
+
+// Updated data model including location (latitude & longitude)
+data class ChessGame(
+    val title: String,
+    val date: String,
+    val moves: String,
+    val latitude: Double? = null,
+    val longitude: Double? = null
+)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,7 +59,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// Loading screen (tentative)
+
 @Composable
 fun ChessPadApp() {
     var showSplashScreen by remember { mutableStateOf(true) }
@@ -63,7 +78,6 @@ fun ChessPadApp() {
     }
 }
 
-// Logo for load screen
 @Composable
 fun SplashScreen() {
     Box(
@@ -80,7 +94,7 @@ fun SplashScreen() {
     }
 }
 
-// Main layout
+
 @Composable
 fun ChessGamesScreen() {
     var games by remember { mutableStateOf(sampleGames()) }
@@ -143,7 +157,7 @@ fun ChessGamesScreen() {
     }
 }
 
-// Grid to display files
+
 @Composable
 fun ChessGamesGrid(games: List<ChessGame>, onGameClick: (ChessGame) -> Unit, modifier: Modifier = Modifier) {
     LazyVerticalGrid(
@@ -157,7 +171,7 @@ fun ChessGamesGrid(games: List<ChessGame>, onGameClick: (ChessGame) -> Unit, mod
     }
 }
 
-// Singlular note page component (opened)
+
 @Composable
 fun ChessGameCard(game: ChessGame, onClick: () -> Unit) {
     Card(
@@ -185,11 +199,14 @@ fun ChessGameCard(game: ChessGame, onClick: () -> Unit) {
     }
 }
 
-// Add game button and functionality
+
 @Composable
 fun AddGameDialog(onDismiss: () -> Unit, onGameAdded: (ChessGame) -> Unit) {
     var gameName by remember { mutableStateOf("") }
     var gameTime by remember { mutableStateOf("") }
+    var gameLat by remember { mutableStateOf<Double?>(null) }
+    var gameLng by remember { mutableStateOf<Double?>(null) }
+    var showMap by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -209,13 +226,26 @@ fun AddGameDialog(onDismiss: () -> Unit, onGameAdded: (ChessGame) -> Unit) {
                     label = { Text("Game Time") },
                     modifier = Modifier.fillMaxWidth()
                 )
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = { showMap = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = if (gameLat != null && gameLng != null)
+                            "Change Game Location" else "Set Game Location"
+                    )
+                }
+                if (gameLat != null && gameLng != null) {
+                    Text(text = "Location: ($gameLat, $gameLng)")
+                }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
                     if (gameName.isNotEmpty() && gameTime.isNotEmpty()) {
-                        onGameAdded(ChessGame(gameName, gameTime, ""))
+                        onGameAdded(ChessGame(gameName, gameTime, "", gameLat, gameLng))
                     }
                 }
             ) {
@@ -228,9 +258,37 @@ fun AddGameDialog(onDismiss: () -> Unit, onGameAdded: (ChessGame) -> Unit) {
             }
         }
     )
+
+
+    if (showMap) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.5f))
+                .clickable { /* Consume clicks to prevent dismissal */ },
+            contentAlignment = Alignment.Center
+        ) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.6f),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            ) {
+                MapScreen(
+                    selectedLocation = if (gameLat != null && gameLng != null)
+                        LatLng(gameLat!!, gameLng!!) else null,
+                    onLocationSelected = { latLng ->
+                        gameLat = latLng.latitude
+                        gameLng = latLng.longitude
+                        showMap = false
+                    }
+                )
+            }
+        }
+    }
 }
 
-// Page details component
+
 @Composable
 fun GameDetailsPanel(game: ChessGame, onClose: () -> Unit) {
     Box(
@@ -261,7 +319,6 @@ fun GameDetailsPanel(game: ChessGame, onClose: () -> Unit) {
                         Icon(Icons.Default.Close, contentDescription = "Close")
                     }
                 }
-
                 Text(
                     text = game.title,
                     fontSize = 20.sp,
@@ -269,26 +326,33 @@ fun GameDetailsPanel(game: ChessGame, onClose: () -> Unit) {
                     textAlign = TextAlign.Center
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-
                 Text(
                     text = "Date: ${game.date}",
                     fontSize = 16.sp,
                     textAlign = TextAlign.Center
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-
                 Text(
                     text = "Moves:\n${game.moves}",
                     fontSize = 14.sp,
                     modifier = Modifier.fillMaxWidth(),
                     textAlign = TextAlign.Left
                 )
+                // If location is saved, show it
+                if (game.latitude != null && game.longitude != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Location: (${game.latitude}, ${game.longitude})",
+                        fontSize = 14.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
     }
 }
 
-// Settings panel (add later!)
+
 @Composable
 fun SettingsPanel(onClose: () -> Unit) {
     Box(
@@ -308,7 +372,6 @@ fun SettingsPanel(onClose: () -> Unit) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("Settings (Add this later!)", style = MaterialTheme.typography.headlineSmall)
                 Spacer(modifier = Modifier.height(16.dp))
-
                 Button(
                     onClick = onClose,
                     modifier = Modifier.align(Alignment.End)
@@ -320,25 +383,15 @@ fun SettingsPanel(onClose: () -> Unit) {
     }
 }
 
-// Games list (Hardcoded for display)
+
 fun sampleGames(): List<ChessGame> {
     return listOf(
         ChessGame("Archived Game 1", "Month Day Year", "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6"),
         ChessGame("Archived Game 2", "Month Day Year", "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6"),
         ChessGame("Archived Game 3", "Month Day Year", "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6"),
         ChessGame("Archived Game 4", "Month Day Year", "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6"),
-        ChessGame("Archived Game 5", "Month Day Year", "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6"),
-        ChessGame("Archived Game 6", "Month Day Year", "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6"),
-        ChessGame("Archived Game 7", "Month Day Year", "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6"),
-        ChessGame("Archived Game 8", "Month Day Year", "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6"),
-        ChessGame("Archived Game 9", "Month Day Year", "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6"),
-        ChessGame("Archived Game 10", "Month Day Year", "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6"),
-        ChessGame("Archived Game 11", "Month Day Year", "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6"),
-        ChessGame("Archived Game 12", "Month Day Year", "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6"),
-        ChessGame("Archived Game 13", "Month Day Year", "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6"),
-        ChessGame("Archived Game 14", "Month Day Year", "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6"),
-        ChessGame("Archived Game 15", "Month Day Year", "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6"),
-        ChessGame("Archived Game 16", "Month Day Year", "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6")
+        ChessGame("Archived Game 5", "Month Day Year", "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6")
+
     )
 }
 
@@ -347,5 +400,29 @@ fun sampleGames(): List<ChessGame> {
 fun DefaultPreview() {
     ChessPadTheme {
         ChessPadApp()
+    }
+}
+
+@Composable
+fun MapScreen(
+    initialLocation: LatLng = LatLng(37.7749, -122.4194),
+    onLocationSelected: (LatLng) -> Unit,
+    selectedLocation: LatLng? = null
+) {
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(initialLocation, 10f)
+    }
+    GoogleMap(
+        modifier = Modifier.fillMaxSize(),
+        cameraPositionState = cameraPositionState,
+        onMapLongClick = { latLng -> onLocationSelected(latLng) }
+    ) {
+        selectedLocation?.let {
+            Marker(
+                state = rememberMarkerState(position = it),
+                title = "Game Location",
+                snippet = "Chosen location"
+            )
+        }
     }
 }
