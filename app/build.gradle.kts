@@ -55,6 +55,9 @@ dependencies {
     implementation("com.google.android.gms:play-services-maps:18.1.0")
     implementation("com.google.maps.android:maps-compose:2.11.0")
 
+    //ML Kit By Google dependencies
+    implementation("com.google.mlkit:text-recognition:16.0.0")
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
