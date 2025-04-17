@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("kotlin-kapt")
 }
 
 android {
@@ -55,6 +56,19 @@ dependencies {
     implementation("com.google.android.gms:play-services-maps:18.1.0")
     implementation("com.google.maps.android:maps-compose:2.11.0")
 
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel.compose.v262)
+    // Room dependencies
+    implementation(libs.androidx.room.runtime)
+    kapt(libs.androidx.room.compiler)  // for annotation processing
+    implementation(libs.androidx.room.ktx) // for Flow and coroutines
+
+    // ViewModel & Lifecycle
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
+
+    // Testing dependencies
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

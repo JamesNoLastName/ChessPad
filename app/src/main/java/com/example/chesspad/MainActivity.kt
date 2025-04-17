@@ -1,10 +1,12 @@
 package com.example.chesspad
 
+import android.app.Application
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.Crossfade
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -12,40 +14,34 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CornerSize
-import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
-import androidx.compose.foundation.Image
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.chesspad.database.ChessGame
 import com.example.chesspad.ui.theme.ChessPadTheme
-import kotlinx.coroutines.delay
-
-// Google Maps Compose imports
+import com.example.chesspad.GameViewModel
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.google.maps.android.compose.rememberMarkerState
+import kotlinx.coroutines.delay
 
-// Updated data model including location (latitude & longitude)
-data class ChessGame(
-    val title: String,
-    val date: String,
-    val moves: String,
-    val latitude: Double? = null,
-    val longitude: Double? = null
-)
+import com.example.chesspad.ui.theme.ChessPadTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,9 +55,13 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-
 @Composable
 fun ChessPadApp() {
+    val context = LocalContext.current
+    val viewModel: GameViewModel = viewModel(
+        factory = ViewModelProvider.AndroidViewModelFactory.getInstance(context.applicationContext as Application)
+    )
+
     var showSplashScreen by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
@@ -73,7 +73,7 @@ fun ChessPadApp() {
         if (isSplash) {
             SplashScreen()
         } else {
-            ChessGamesScreen()
+            ChessGamesScreen(viewModel)
         }
     }
 }
@@ -94,10 +94,10 @@ fun SplashScreen() {
     }
 }
 
-
 @Composable
-fun ChessGamesScreen() {
-    var games by remember { mutableStateOf(sampleGames()) }
+fun ChessGamesScreen(viewModel: GameViewModel) {
+    val games by viewModel.games.collectAsState()
+
     var isSettingsOpen by remember { mutableStateOf(false) }
     var selectedGame by remember { mutableStateOf<ChessGame?>(null) }
     var isAddGameDialogOpen by remember { mutableStateOf(false) }
@@ -145,18 +145,20 @@ fun ChessGamesScreen() {
         }
 
         selectedGame?.let {
-            GameDetailsPanel(game = it, onClose = { selectedGame = null })
+            GameDetailsPanel(game = it, onClose = { selectedGame = null }, onDelete = {
+                viewModel.deleteGame(it)
+                selectedGame = null
+            })
         }
     }
 
     if (isAddGameDialogOpen) {
         AddGameDialog(onDismiss = { isAddGameDialogOpen = false }) { newGame ->
-            games = games + newGame
+            viewModel.addGame(newGame)
             isAddGameDialogOpen = false
         }
     }
 }
-
 
 @Composable
 fun ChessGamesGrid(games: List<ChessGame>, onGameClick: (ChessGame) -> Unit, modifier: Modifier = Modifier) {
@@ -170,7 +172,6 @@ fun ChessGamesGrid(games: List<ChessGame>, onGameClick: (ChessGame) -> Unit, mod
         }
     }
 }
-
 
 @Composable
 fun ChessGameCard(game: ChessGame, onClick: () -> Unit) {
@@ -198,7 +199,6 @@ fun ChessGameCard(game: ChessGame, onClick: () -> Unit) {
         }
     }
 }
-
 
 @Composable
 fun AddGameDialog(onDismiss: () -> Unit, onGameAdded: (ChessGame) -> Unit) {
@@ -245,7 +245,7 @@ fun AddGameDialog(onDismiss: () -> Unit, onGameAdded: (ChessGame) -> Unit) {
             Button(
                 onClick = {
                     if (gameName.isNotEmpty() && gameTime.isNotEmpty()) {
-                        onGameAdded(ChessGame(gameName, gameTime, "", gameLat, gameLng))
+                        onGameAdded(ChessGame(title = gameName, date = gameTime, moves = "", latitude = gameLat, longitude = gameLng))
                     }
                 }
             ) {
@@ -258,7 +258,6 @@ fun AddGameDialog(onDismiss: () -> Unit, onGameAdded: (ChessGame) -> Unit) {
             }
         }
     )
-
 
     if (showMap) {
         Box(
@@ -288,9 +287,8 @@ fun AddGameDialog(onDismiss: () -> Unit, onGameAdded: (ChessGame) -> Unit) {
     }
 }
 
-
 @Composable
-fun GameDetailsPanel(game: ChessGame, onClose: () -> Unit) {
+fun GameDetailsPanel(game: ChessGame, onClose: () -> Unit, onDelete: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -347,11 +345,14 @@ fun GameDetailsPanel(game: ChessGame, onClose: () -> Unit) {
                         textAlign = TextAlign.Center
                     )
                 }
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(onClick = onDelete) {
+                    Text("Delete Game")
+                }
             }
         }
     }
 }
-
 
 @Composable
 fun SettingsPanel(onClose: () -> Unit) {
@@ -383,26 +384,6 @@ fun SettingsPanel(onClose: () -> Unit) {
     }
 }
 
-
-fun sampleGames(): List<ChessGame> {
-    return listOf(
-        ChessGame("Archived Game 1", "Month Day Year", "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6"),
-        ChessGame("Archived Game 2", "Month Day Year", "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6"),
-        ChessGame("Archived Game 3", "Month Day Year", "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6"),
-        ChessGame("Archived Game 4", "Month Day Year", "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6"),
-        ChessGame("Archived Game 5", "Month Day Year", "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6")
-
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun DefaultPreview() {
-    ChessPadTheme {
-        ChessPadApp()
-    }
-}
-
 @Composable
 fun MapScreen(
     initialLocation: LatLng = LatLng(37.7749, -122.4194),
@@ -412,6 +393,7 @@ fun MapScreen(
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(initialLocation, 10f)
     }
+
     GoogleMap(
         modifier = Modifier.fillMaxSize(),
         cameraPositionState = cameraPositionState,
