@@ -47,6 +47,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.viewinterop.AndroidView
 import no.bakkenbaeck.chessboardeditor.view.board.ChessBoardView
 
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.material.icons.filled.Check
+
 import com.example.chesspad.ui.theme.ChessPadTheme
 
 private const val STANDARD_START_FEN =
@@ -239,35 +242,41 @@ fun AddGameDialog(onDismiss: () -> Unit, onGameAdded: (ChessGame) -> Unit) {
     }
 
     if (showBoard) {
-        Dialog(onDismissRequest = { showBoard = false }) {
-            Card(
+        Dialog(
+            onDismissRequest = {   },
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false, // take the full width
+                dismissOnBackPress = false,
+                dismissOnClickOutside = false
+            )
+        ) {
+            Box(
                 Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(0.9f),
-                elevation = CardDefaults.cardElevation(8.dp)
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.8f))
             ) {
-                Column(Modifier.fillMaxSize()) {
-                    InteractiveChessBoard(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        Button(onClick = { showBoard = false }) {
-                            Text("Done")
+                AndroidView(
+                    factory = { ctx ->
+                        ChessBoardView(ctx).apply {
+                            setFen(STANDARD_START_FEN)
                         }
-                    }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()       // fill horizontal, fillMaxSize doesn't work..
+                        .aspectRatio(1f)      // keep it square
+                        .align(Alignment.Center)
+                )
+                IconButton(
+                    onClick = { showBoard = false },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(16.dp)
+                ) {
+                    Icon(Icons.Default.Check, contentDescription = "Save")
                 }
             }
         }
     }
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add New Game") },
@@ -455,12 +464,12 @@ fun InteractiveChessBoard(
     AndroidView(
         factory = { ctx ->
             ChessBoardView(ctx).apply {
-                // initialize to either the supplied fen or the standard start
+
                 setFen(fen)
             }
         },
         modifier = modifier
             .fillMaxWidth()
-            .aspectRatio(1f) // keep it square
+            .aspectRatio(1f)
     )
 }
