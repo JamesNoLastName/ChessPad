@@ -41,6 +41,8 @@ import com.google.maps.android.compose.rememberCameraPositionState
 import com.google.maps.android.compose.rememberMarkerState
 import kotlinx.coroutines.delay
 
+import androidx.compose.ui.window.Dialog
+
 import com.example.chesspad.ui.theme.ChessPadTheme
 
 class MainActivity : ComponentActivity() {
@@ -202,90 +204,71 @@ fun ChessGameCard(game: ChessGame, onClick: () -> Unit) {
 
 @Composable
 fun AddGameDialog(onDismiss: () -> Unit, onGameAdded: (ChessGame) -> Unit) {
-    var gameName by remember { mutableStateOf("") }
-    var gameTime by remember { mutableStateOf("") }
-    var gameLat by remember { mutableStateOf<Double?>(null) }
-    var gameLng by remember { mutableStateOf<Double?>(null) }
+    var name by remember { mutableStateOf("") }
+    var date by remember { mutableStateOf("") }
+    var lat by remember { mutableStateOf<Double?>(null) }
+    var lng by remember { mutableStateOf<Double?>(null) }
     var showMap by remember { mutableStateOf(false) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(text = "Add New Game") },
-        text = {
-            Column {
-                TextField(
-                    value = gameName,
-                    onValueChange = { gameName = it },
-                    label = { Text("Game Name") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                TextField(
-                    value = gameTime,
-                    onValueChange = { gameTime = it },
-                    label = { Text("Game Time") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = { showMap = true },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = if (gameLat != null && gameLng != null)
-                            "Change Game Location" else "Set Game Location"
-                    )
-                }
-                if (gameLat != null && gameLng != null) {
-                    Text(text = "Location: ($gameLat, $gameLng)")
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (gameName.isNotEmpty() && gameTime.isNotEmpty()) {
-                        onGameAdded(ChessGame(title = gameName, date = gameTime, moves = "", latitude = gameLat, longitude = gameLng))
-                    }
-                }
-            ) {
-                Text("Add Game")
-            }
-        },
-        dismissButton = {
-            Button(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    )
-
     if (showMap) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.5f))
-                .clickable { /* Consume clicks to prevent dismissal */ },
-            contentAlignment = Alignment.Center
-        ) {
+        Dialog(onDismissRequest = { showMap = false }) {
             Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(0.6f),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                Modifier.fillMaxWidth().fillMaxHeight(0.6f),
+                elevation = CardDefaults.cardElevation(8.dp)
             ) {
                 MapScreen(
-                    selectedLocation = if (gameLat != null && gameLng != null)
-                        LatLng(gameLat!!, gameLng!!) else null,
-                    onLocationSelected = { latLng ->
-                        gameLat = latLng.latitude
-                        gameLng = latLng.longitude
+                    selectedLocation = lat?.let { la -> lng?.let { lo -> LatLng(la, lo) } },
+                    onLocationSelected = {
+                        lat = it.latitude; lng = it.longitude
                         showMap = false
                     }
                 )
             }
         }
     }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add New Game") },
+        text = {
+            Column {
+                TextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Game Name") }
+                )
+                Spacer(Modifier.height(8.dp))
+                TextField(
+                    value = date,
+                    onValueChange = { date = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Game Time") }
+                )
+                Spacer(Modifier.height(8.dp))
+                Button(onClick = { showMap = true }, Modifier.fillMaxWidth()) {
+                    Text(if (lat != null && lng != null) "Change Location" else "Set Location")
+                }
+                lat?.let { la ->
+                    lng?.let { lo ->
+                        Text("Location: ($la, $lo)")
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                if (name.isNotBlank() && date.isNotBlank()) {
+                    onGameAdded(ChessGame(0, name, date, "", lat, lng))
+                }
+            }) { Text("Add") }
+        },
+        dismissButton = {
+            Button(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
 }
+
 
 @Composable
 fun GameDetailsPanel(game: ChessGame, onClose: () -> Unit, onDelete: () -> Unit) {
