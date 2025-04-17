@@ -43,7 +43,14 @@ import kotlinx.coroutines.delay
 
 import androidx.compose.ui.window.Dialog
 
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.viewinterop.AndroidView
+import no.bakkenbaeck.chessboardeditor.view.board.ChessBoardView
+
 import com.example.chesspad.ui.theme.ChessPadTheme
+
+private const val STANDARD_START_FEN =
+    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -209,20 +216,54 @@ fun AddGameDialog(onDismiss: () -> Unit, onGameAdded: (ChessGame) -> Unit) {
     var lat by remember { mutableStateOf<Double?>(null) }
     var lng by remember { mutableStateOf<Double?>(null) }
     var showMap by remember { mutableStateOf(false) }
+    var showBoard by remember { mutableStateOf(false) }
 
     if (showMap) {
         Dialog(onDismissRequest = { showMap = false }) {
             Card(
-                Modifier.fillMaxWidth().fillMaxHeight(0.6f),
+                Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.6f),
                 elevation = CardDefaults.cardElevation(8.dp)
             ) {
                 MapScreen(
                     selectedLocation = lat?.let { la -> lng?.let { lo -> LatLng(la, lo) } },
                     onLocationSelected = {
-                        lat = it.latitude; lng = it.longitude
+                        lat = it.latitude
+                        lng = it.longitude
                         showMap = false
                     }
                 )
+            }
+        }
+    }
+
+    if (showBoard) {
+        Dialog(onDismissRequest = { showBoard = false }) {
+            Card(
+                Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.9f),
+                elevation = CardDefaults.cardElevation(8.dp)
+            ) {
+                Column(Modifier.fillMaxSize()) {
+                    InteractiveChessBoard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        Button(onClick = { showBoard = false }) {
+                            Text("Done")
+                        }
+                    }
+                }
             }
         }
     }
@@ -246,7 +287,17 @@ fun AddGameDialog(onDismiss: () -> Unit, onGameAdded: (ChessGame) -> Unit) {
                     label = { Text("Game Time") }
                 )
                 Spacer(Modifier.height(8.dp))
-                Button(onClick = { showMap = true }, Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = { showBoard = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Enter Moves")
+                }
+                Spacer(Modifier.height(8.dp))
+                Button(
+                    onClick = { showMap = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Text(if (lat != null && lng != null) "Change Location" else "Set Location")
                 }
                 lat?.let { la ->
@@ -261,10 +312,14 @@ fun AddGameDialog(onDismiss: () -> Unit, onGameAdded: (ChessGame) -> Unit) {
                 if (name.isNotBlank() && date.isNotBlank()) {
                     onGameAdded(ChessGame(0, name, date, "", lat, lng))
                 }
-            }) { Text("Add") }
+            }) {
+                Text("Add")
+            }
         },
         dismissButton = {
-            Button(onClick = onDismiss) { Text("Cancel") }
+            Button(onClick = onDismiss) {
+                Text("Cancel")
+            }
         }
     )
 }
@@ -390,4 +445,22 @@ fun MapScreen(
             )
         }
     }
+}
+
+@Composable
+fun InteractiveChessBoard(
+    fen: String = STANDARD_START_FEN,
+    modifier: Modifier = Modifier
+) {
+    AndroidView(
+        factory = { ctx ->
+            ChessBoardView(ctx).apply {
+                // initialize to either the supplied fen or the standard start
+                setFen(fen)
+            }
+        },
+        modifier = modifier
+            .fillMaxWidth()
+            .aspectRatio(1f) // keep it square
+    )
 }

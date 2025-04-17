@@ -5,6 +5,12 @@ plugins {
     id("kotlin-kapt")
 }
 
+configurations.all {
+    resolutionStrategy {
+        force("androidx.vectordrawable:vectordrawable:1.0.1")
+    }
+}
+
 android {
     namespace = "com.example.chesspad"
     compileSdk = 35
@@ -42,6 +48,7 @@ android {
     }
 }
 
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -67,6 +74,10 @@ dependencies {
     // ViewModel & Lifecycle
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
+
+    //chess board dependencies
+    implementation("com.github.bakkenbaeck:chessboardeditor:v1.0.2")
+
 
     // Testing dependencies
     testImplementation(libs.junit)
