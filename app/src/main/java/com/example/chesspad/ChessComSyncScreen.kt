@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.*
 import org.json.JSONObject
 import java.net.URL
+import kotlin.Result
 
 @Composable
 fun ChessComSyncScreen(onUsernameEntered: (String) -> Unit) {
@@ -22,6 +23,39 @@ fun ChessComSyncScreen(onUsernameEntered: (String) -> Unit) {
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     var showNextButton by remember { mutableStateOf(false) }
+    var currentPage by remember { mutableStateOf(0) }
+    val pageSize = 20
+    val pagedGames = games.take((currentPage + 1) * pageSize)
+    val canLoadMore = games.size > pagedGames.size || games.size == (currentPage + 1) * pageSize
+
+    suspend fun fetchChessComGames(username: String, maxGames: Int = 100): Result<List<ChessComGame>> = withContext(Dispatchers.IO) {
+        try {
+            val now = java.util.Calendar.getInstance()
+            val year = now.get(java.util.Calendar.YEAR)
+            val month = now.get(java.util.Calendar.MONTH) + 1
+            val apiUrl = "https://api.chess.com/pub/player/${username}/games/$year/${"%02d".format(month)}"
+            val response = URL(apiUrl).readText()
+            val json = JSONObject(response)
+            val gamesJson = json.getJSONArray("games")
+            val games = mutableListOf<ChessComGame>()
+            for (i in 0 until gamesJson.length()) {
+                if (games.size >= maxGames) break
+                val g = gamesJson.getJSONObject(i)
+                games.add(
+                    ChessComGame(
+                        url = g.getString("url"),
+                        white = g.getJSONObject("white").getString("username"),
+                        black = g.getJSONObject("black").getString("username"),
+                        result = g.optString("result", ""),
+                        endTime = g.optLong("end_time", 0L)
+                    )
+                )
+            }
+            Result.success(games)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -49,8 +83,9 @@ fun ChessComSyncScreen(onUsernameEntered: (String) -> Unit) {
                     isLoading = true
                     games = emptyList()
                     showNextButton = false
+                    currentPage = 0
                     coroutineScope.launch {
-                        val result = fetchChessComGames(username)
+                        val result = fetchChessComGames(username, maxGames = 100)
                         isLoading = false
                         if (result.isSuccess) {
                             games = result.getOrDefault(emptyList())
@@ -83,8 +118,18 @@ fun ChessComSyncScreen(onUsernameEntered: (String) -> Unit) {
                 Text("Recent Games:", style = MaterialTheme.typography.titleMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 LazyColumn(modifier = Modifier.weight(1f)) {
-                    items(games) { game ->
+                    items(pagedGames) { game ->
                         ChessComGameItem(game)
+                    }
+                    if (canLoadMore) {
+                        item {
+                            Button(
+                                onClick = { currentPage += 1 },
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                            ) {
+                                Text("Load More Games")
+                            }
+                        }
                     }
                 }
             }
@@ -116,34 +161,5 @@ fun ChessComGameItem(game: ChessComGame) {
                 Text("View on Chess.com", color = MaterialTheme.colorScheme.primary)
             }
         }
-    }
-}
-
-suspend fun fetchChessComGames(username: String): Result<List<ChessComGame>> = withContext(Dispatchers.IO) {
-    try {
-        // Get current year and month
-        val now = java.util.Calendar.getInstance()
-        val year = now.get(java.util.Calendar.YEAR)
-        val month = now.get(java.util.Calendar.MONTH) + 1 // Calendar.MONTH is zero-based
-        val apiUrl = "https://api.chess.com/pub/player/${username}/games/$year/${"%02d".format(month)}"
-        val response = URL(apiUrl).readText()
-        val json = JSONObject(response)
-        val gamesJson = json.getJSONArray("games")
-        val games = mutableListOf<ChessComGame>()
-        for (i in 0 until gamesJson.length()) {
-            val g = gamesJson.getJSONObject(i)
-            games.add(
-                ChessComGame(
-                    url = g.getString("url"),
-                    white = g.getJSONObject("white").getString("username"),
-                    black = g.getJSONObject("black").getString("username"),
-                    result = g.optString("result", ""),
-                    endTime = g.optLong("end_time", 0L)
-                )
-            )
-        }
-        Result.success(games)
-    } catch (e: Exception) {
-        Result.failure(e)
     }
 }
