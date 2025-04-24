@@ -20,56 +20,72 @@ fun ChessComSyncScreen(onUsernameEntered: (String) -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     var games by remember { mutableStateOf<List<ChessComGame>>(emptyList()) }
     val coroutineScope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    var showNextButton by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text("Sync Chess.com Games", style = MaterialTheme.typography.headlineSmall)
-        Spacer(modifier = Modifier.height(16.dp))
-        OutlinedTextField(
-            value = username,
-            onValueChange = { username = it },
-            label = { Text("Chess.com Username") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Button(
-            onClick = {
-                error = null
-                isLoading = true
-                games = emptyList()
-                coroutineScope.launch {
-                    val result = fetchChessComGames(username)
-                    isLoading = false
-                    if (result.isSuccess) {
-                        games = result.getOrDefault(emptyList())
-                        onUsernameEntered(username)
-                    } else {
-                        error = result.exceptionOrNull()?.message ?: "Unknown error"
-                    }
-                }
-            },
-            enabled = username.isNotBlank() && !isLoading
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+                .padding(innerPadding),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Sync Games")
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-        if (isLoading) {
-            CircularProgressIndicator()
-        }
-        error?.let {
-            Text(it, color = MaterialTheme.colorScheme.error)
-        }
-        if (games.isNotEmpty()) {
-            Text("Recent Games:", style = MaterialTheme.typography.titleMedium)
+            Text("Sync Chess.com Games", style = MaterialTheme.typography.headlineSmall)
+            Spacer(modifier = Modifier.height(16.dp))
+            OutlinedTextField(
+                value = username,
+                onValueChange = { username = it },
+                label = { Text("Chess.com Username") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
             Spacer(modifier = Modifier.height(8.dp))
-            LazyColumn(modifier = Modifier.weight(1f)) {
-                items(games) { game ->
-                    ChessComGameItem(game)
+            Button(
+                onClick = {
+                    error = null
+                    isLoading = true
+                    games = emptyList()
+                    showNextButton = false
+                    coroutineScope.launch {
+                        val result = fetchChessComGames(username)
+                        isLoading = false
+                        if (result.isSuccess) {
+                            games = result.getOrDefault(emptyList())
+                            snackbarHostState.showSnackbar("Data fetched successfully!")
+                            showNextButton = true
+                        } else {
+                            error = result.exceptionOrNull()?.message ?: "This user does not exist."
+                            snackbarHostState.showSnackbar(error!!)
+                        }
+                    }
+                },
+                enabled = username.isNotBlank() && !isLoading
+            ) {
+                Text("Sync Games")
+            }
+            if (showNextButton) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(onClick = { onUsernameEntered(username) }) {
+                    Text("Go to Next Page")
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            if (isLoading) {
+                CircularProgressIndicator()
+            }
+            error?.let {
+                Text(it, color = MaterialTheme.colorScheme.error)
+            }
+            if (games.isNotEmpty()) {
+                Text("Recent Games:", style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+                LazyColumn(modifier = Modifier.weight(1f)) {
+                    items(games) { game ->
+                        ChessComGameItem(game)
+                    }
                 }
             }
         }
