@@ -50,10 +50,22 @@ import no.bakkenbaeck.chessboardeditor.view.board.ChessBoardView
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material.icons.filled.Check
 
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.size
+
+import androidx.compose.foundation.shape.CircleShape
+
+
+import android.widget.FrameLayout
+
+
 import com.example.chesspad.ui.theme.ChessPadTheme
 
 private const val STANDARD_START_FEN =
     "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
+//maybe Chess 960 starting location FEN; will ask user which starting location FEN they would like
+//rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -75,18 +87,26 @@ fun ChessPadApp() {
     )
 
     var showSplashScreen by remember { mutableStateOf(true) }
+    var showSyncScreen by remember { mutableStateOf(false) }
+    var hasEnteredUsername by remember { mutableStateOf(false) }
+    var syncedUsername by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
         delay(3000)
         showSplashScreen = false
+        showSyncScreen = true
     }
 
-    Crossfade(targetState = showSplashScreen) { isSplash ->
-        if (isSplash) {
-            SplashScreen()
-        } else {
-            ChessGamesScreen(viewModel)
-        }
+    when {
+        showSplashScreen -> SplashScreen()
+        showSyncScreen && !hasEnteredUsername -> ChessComSyncScreen(
+            onUsernameEntered = { username ->
+                syncedUsername = username
+                hasEnteredUsername = true
+                showSyncScreen = false
+            }
+        )
+        else -> ChessGamesScreen(viewModel)
     }
 }
 
@@ -221,6 +241,7 @@ fun AddGameDialog(onDismiss: () -> Unit, onGameAdded: (ChessGame) -> Unit) {
     var showMap by remember { mutableStateOf(false) }
     var showBoard by remember { mutableStateOf(false) }
 
+    // display google map
     if (showMap) {
         Dialog(onDismissRequest = { showMap = false }) {
             Card(
@@ -241,41 +262,77 @@ fun AddGameDialog(onDismiss: () -> Unit, onGameAdded: (ChessGame) -> Unit) {
         }
     }
 
+    //display chess board
     if (showBoard) {
+
         Dialog(
-            onDismissRequest = {   },
+
+            onDismissRequest = { },
+
             properties = DialogProperties(
+
                 usePlatformDefaultWidth = false, // take the full width
+
                 dismissOnBackPress = false,
+
                 dismissOnClickOutside = false
+
             )
+
         ) {
+
             Box(
+
                 Modifier
+
                     .fillMaxSize()
+
                     .background(Color.Black.copy(alpha = 0.8f))
+
             ) {
+
                 AndroidView(
+
                     factory = { ctx ->
+
                         ChessBoardView(ctx).apply {
+
                             setFen(STANDARD_START_FEN)
+
                         }
+
                     },
+
                     modifier = Modifier
-                        .fillMaxWidth()       // fill horizontal, fillMaxSize doesn't work..
+
+                        .fillMaxSize()       // fill horizontal
+
                         .aspectRatio(1f)      // keep it square
+
                         .align(Alignment.Center)
+
                 )
+
                 IconButton(
+
                     onClick = { showBoard = false },
+
                     modifier = Modifier
+
                         .align(Alignment.TopEnd)
+
                         .padding(16.dp)
+
                 ) {
+
                     Icon(Icons.Default.Check, contentDescription = "Save")
+
                 }
+
             }
+
         }
+
     }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -431,6 +488,7 @@ fun SettingsPanel(onClose: () -> Unit) {
     }
 }
 
+// Google Map
 @Composable
 fun MapScreen(
     initialLocation: LatLng = LatLng(37.7749, -122.4194),
@@ -456,6 +514,8 @@ fun MapScreen(
     }
 }
 
+// helper function for displaying chessboard
+
 @Composable
 fun InteractiveChessBoard(
     fen: String = STANDARD_START_FEN,
@@ -464,12 +524,13 @@ fun InteractiveChessBoard(
     AndroidView(
         factory = { ctx ->
             ChessBoardView(ctx).apply {
-
                 setFen(fen)
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
             }
         },
-        modifier = modifier
-            .fillMaxWidth()
-            .aspectRatio(1f)
+        modifier = modifier.fillMaxSize()
     )
 }
