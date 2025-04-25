@@ -33,6 +33,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.chesspad.database.ChessGame
 import com.example.chesspad.ui.theme.ChessPadTheme
 import com.example.chesspad.GameViewModel
+import com.example.chesspad.GameNotesScreen
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.GoogleMap
@@ -104,6 +105,8 @@ fun ChessPadApp() {
         mutableStateOf<Triple<Int, Int, String?>>(Triple(0, 0, null))
     }
     var topOpponent by remember { mutableStateOf<String?>(null) }
+    var showNotesScreen by remember { mutableStateOf(false) }
+    var recentGames by remember { mutableStateOf<List<ChessComGame>>(emptyList()) }
     val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(hasEnteredUsername, syncedUsername) {
@@ -112,6 +115,7 @@ fun ChessPadApp() {
             val result = fetchChessComGames(syncedUsername!!)
             if (result.isSuccess) {
                 val games = result.getOrNull() ?: emptyList()
+                recentGames = games
                 val gamesPlayed = games.size
                 val wins = games.count {
                     (it.white.equals(syncedUsername, ignoreCase = true) && it.whiteResult == "win") ||
@@ -126,11 +130,8 @@ fun ChessPadApp() {
                     }
                 }
                 val topOpponentValue = opponents.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
-                // Favorite opening extraction (improved regex)
                 val openingRegex = Regex("\\[Opening \"([^\"]+)\"\\]")
                 val openingList = games.mapNotNull { game ->
-                    // Uncomment the next line to debug PGN content:
-                    // println("PGN: ${game.pgn}")
                     openingRegex.find(game.pgn)?.groupValues?.getOrNull(1)
                 }
                 val openingCounts = openingList.groupingBy { it }.eachCount()
@@ -140,6 +141,7 @@ fun ChessPadApp() {
             } else {
                 summaryStats = Triple(0, 0, "N/A")
                 topOpponent = null
+                recentGames = emptyList()
             }
             isSummaryLoading = false
         }
@@ -154,10 +156,15 @@ fun ChessPadApp() {
     when {
         showSplashScreen -> SplashScreen()
         showSyncScreen && !hasEnteredUsername -> ChessComSyncScreen(
-            onUsernameEntered = { username ->
-                syncedUsername = username
+            onUsernameEntered = { enteredUsername ->
+                syncedUsername = enteredUsername
                 hasEnteredUsername = true
                 showSyncScreen = false
+            },
+            onGoToSummary = {
+                showSyncScreen = false
+                showNotesScreen = false
+                hasEnteredUsername = true
             }
         )
         hasEnteredUsername && syncedUsername != null && isSummaryLoading -> {
@@ -165,19 +172,27 @@ fun ChessPadApp() {
                 CircularProgressIndicator()
             }
         }
-        hasEnteredUsername && syncedUsername != null && !isSummaryLoading -> SummaryScreen(
+        hasEnteredUsername && syncedUsername != null && !isSummaryLoading && !showNotesScreen -> SummaryScreen(
             username = syncedUsername ?: "",
             gamesPlayed = summaryStats.first,
             winRate = summaryStats.second,
             favoriteOpening = summaryStats.third,
             topOpponent = topOpponent,
             onDone = {
-                hasEnteredUsername = false
+                showNotesScreen = true
             },
             onTryAnotherUser = {
                 hasEnteredUsername = false
                 syncedUsername = null
                 showSyncScreen = true
+                showNotesScreen = false
+            }
+        )
+        hasEnteredUsername && syncedUsername != null && showNotesScreen -> GameNotesScreen(
+            games = recentGames,
+            onDone = {
+                showNotesScreen = false
+                hasEnteredUsername = false
             }
         )
         else -> ChessGamesScreen(viewModel)
