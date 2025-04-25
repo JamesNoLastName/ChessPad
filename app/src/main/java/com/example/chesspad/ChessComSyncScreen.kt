@@ -23,19 +23,23 @@ import kotlinx.coroutines.*
 import org.json.JSONObject
 import java.io.File
 import java.net.URL
+import java.util.Calendar
 import kotlin.Result
 
-suspend fun fetchChessComGames(username: String, maxGames: Int = 100): Result<List<ChessComGame>> = withContext(Dispatchers.IO) {
+suspend fun fetchChessComGames(username: String, startYear: Int, startMonth: Int, endYear: Int, endMonth: Int, maxGames: Int = 100): Result<List<ChessComGame>> = withContext(Dispatchers.IO) {
     try {
-        val now = java.util.Calendar.getInstance()
-        val year = now.get(java.util.Calendar.YEAR)
-        val month = now.get(java.util.Calendar.MONTH) + 1
-        val prevMonth = if (month == 1) 12 else month - 1
-        val prevYear = if (month == 1) year - 1 else year
-        val urls = listOf(
-            "https://api.chess.com/pub/player/${username}/games/$year/${"%02d".format(month)}",
-            "https://api.chess.com/pub/player/${username}/games/$prevYear/${"%02d".format(prevMonth)}"
-        )
+        val urls = mutableListOf<String>()
+        var year = startYear
+        var month = startMonth
+        while (year < endYear || (year == endYear && month <= endMonth)) {
+            urls.add("https://api.chess.com/pub/player/${username}/games/$year/${"%02d".format(month)}")
+            if (month == 12) {
+                month = 1
+                year += 1
+            } else {
+                month += 1
+            }
+        }
         val allGames = mutableListOf<ChessComGame>()
         for (apiUrl in urls) {
             try {
@@ -81,7 +85,10 @@ data class ChessComGame(
 )
 
 @Composable
-fun ChessComSyncScreen(onUsernameEntered: (String) -> Unit, onGoToSummary: () -> Unit) {
+fun ChessComSyncScreen(
+    onUsernameEntered: (String, Int, Int, Int, Int) -> Unit,
+    onGoToSummary: () -> Unit
+) {
     var username by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -91,6 +98,15 @@ fun ChessComSyncScreen(onUsernameEntered: (String) -> Unit, onGoToSummary: () ->
     var showNextButton by remember { mutableStateOf(false) }
     var currentPage by remember { mutableStateOf(0) }
     val pageSize = 20
+
+    // Date filter state
+    val now = Calendar.getInstance()
+    val currentYear = now.get(Calendar.YEAR)
+    val currentMonth = now.get(Calendar.MONTH) + 1
+    var startYear by remember { mutableStateOf(currentYear) }
+    var startMonth by remember { mutableStateOf(currentMonth) }
+    var endYear by remember { mutableStateOf(currentYear) }
+    var endMonth by remember { mutableStateOf(currentMonth) }
 
     // Notes state: Map game.url -> note
     var notes by remember { mutableStateOf(mutableMapOf<String, String>()) }
@@ -129,6 +145,18 @@ fun ChessComSyncScreen(onUsernameEntered: (String) -> Unit, onGoToSummary: () ->
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("From:", modifier = Modifier.padding(end = 8.dp))
+                YearMonthDropdown(year = startYear, month = startMonth,
+                    onYearChange = { startYear = it },
+                    onMonthChange = { startMonth = it })
+                Spacer(modifier = Modifier.width(16.dp))
+                Text("To:", modifier = Modifier.padding(end = 8.dp))
+                YearMonthDropdown(year = endYear, month = endMonth,
+                    onYearChange = { endYear = it },
+                    onMonthChange = { endMonth = it })
+            }
+            Spacer(modifier = Modifier.height(8.dp))
             Button(
                 onClick = {
                     error = null
@@ -137,7 +165,7 @@ fun ChessComSyncScreen(onUsernameEntered: (String) -> Unit, onGoToSummary: () ->
                     showNextButton = false
                     currentPage = 0
                     coroutineScope.launch {
-                        val result = fetchChessComGames(username, maxGames = 100)
+                        val result = fetchChessComGames(username, startYear, startMonth, endYear, endMonth, maxGames = 100)
                         isLoading = false
                         if (result.isSuccess) {
                             games = result.getOrDefault(emptyList())
@@ -155,7 +183,7 @@ fun ChessComSyncScreen(onUsernameEntered: (String) -> Unit, onGoToSummary: () ->
             }
             if (showNextButton) {
                 Spacer(modifier = Modifier.height(16.dp))
-                Button(onClick = { onUsernameEntered(username) }) {
+                Button(onClick = { onUsernameEntered(username, startYear, startMonth, endYear, endMonth) }) {
                     Text("Go to Next Page")
                 }
             }
@@ -316,6 +344,46 @@ fun ChessComGameItem(game: ChessComGame) {
             val uriHandler = LocalUriHandler.current
             TextButton(onClick = { uriHandler.openUri(game.url) }) {
                 Text("View on Chess.com", color = MaterialTheme.colorScheme.primary)
+            }
+        }
+    }
+}
+
+@Composable
+fun YearMonthDropdown(year: Int, month: Int, onYearChange: (Int) -> Unit, onMonthChange: (Int) -> Unit) {
+    val currentYear = Calendar.getInstance().get(Calendar.YEAR)
+    val years = (currentYear - 10..currentYear).toList().reversed()
+    val months = (1..12).toList()
+    var expandedYear by remember { mutableStateOf(false) }
+    var expandedMonth by remember { mutableStateOf(false) }
+    Box {
+        Row {
+            Box {
+                TextButton(onClick = { expandedYear = true }) {
+                    Text(year.toString())
+                }
+                DropdownMenu(expanded = expandedYear, onDismissRequest = { expandedYear = false }) {
+                    years.forEach {
+                        DropdownMenuItem(text = { Text(it.toString()) }, onClick = {
+                            onYearChange(it)
+                            expandedYear = false
+                        })
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.width(4.dp))
+            Box {
+                TextButton(onClick = { expandedMonth = true }) {
+                    Text(month.toString().padStart(2, '0'))
+                }
+                DropdownMenu(expanded = expandedMonth, onDismissRequest = { expandedMonth = false }) {
+                    months.forEach {
+                        DropdownMenuItem(text = { Text(it.toString().padStart(2, '0')) }, onClick = {
+                            onMonthChange(it)
+                            expandedMonth = false
+                        })
+                    }
+                }
             }
         }
     }

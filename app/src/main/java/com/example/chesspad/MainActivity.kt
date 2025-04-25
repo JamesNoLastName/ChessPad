@@ -109,10 +109,15 @@ fun ChessPadApp() {
     var recentGames by remember { mutableStateOf<List<ChessComGame>>(emptyList()) }
     val coroutineScope = rememberCoroutineScope()
 
-    LaunchedEffect(hasEnteredUsername, syncedUsername) {
+    var selectedStartYear by remember { mutableStateOf(2024) }
+    var selectedStartMonth by remember { mutableStateOf(1) }
+    var selectedEndYear by remember { mutableStateOf(2024) }
+    var selectedEndMonth by remember { mutableStateOf(1) }
+
+    LaunchedEffect(hasEnteredUsername, syncedUsername, selectedStartYear, selectedStartMonth, selectedEndYear, selectedEndMonth) {
         if (hasEnteredUsername && syncedUsername != null) {
             isSummaryLoading = true
-            val result = fetchChessComGames(syncedUsername!!)
+            val result = fetchChessComGames(syncedUsername!!, selectedStartYear, selectedStartMonth, selectedEndYear, selectedEndMonth)
             if (result.isSuccess) {
                 val games = result.getOrNull() ?: emptyList()
                 recentGames = games
@@ -156,10 +161,14 @@ fun ChessPadApp() {
     when {
         showSplashScreen -> SplashScreen()
         showSyncScreen && !hasEnteredUsername -> ChessComSyncScreen(
-            onUsernameEntered = { enteredUsername ->
+            onUsernameEntered = { enteredUsername, startYear, startMonth, endYear, endMonth ->
                 syncedUsername = enteredUsername
                 hasEnteredUsername = true
                 showSyncScreen = false
+                selectedStartYear = startYear
+                selectedStartMonth = startMonth
+                selectedEndYear = endYear
+                selectedEndMonth = endMonth
             },
             onGoToSummary = {
                 showSyncScreen = false
