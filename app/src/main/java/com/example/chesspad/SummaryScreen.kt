@@ -20,7 +20,8 @@ fun SummaryScreen(
     winRate: Int,
     favoriteOpening: String?,
     topOpponent: String?,
-    onDone: () -> Unit
+    onDone: () -> Unit,
+    onTryAnotherUser: () -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -59,6 +60,10 @@ fun SummaryScreen(
                 Spacer(modifier = Modifier.height(32.dp))
                 Button(onClick = onDone) {
                     Text("Done")
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(onClick = onTryAnotherUser) {
+                    Text("Try Another User")
                 }
             }
         }

@@ -43,6 +43,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.net.URL
+import java.util.regex.Pattern
 import kotlin.Result
 
 import androidx.compose.ui.window.Dialog
@@ -125,10 +126,19 @@ fun ChessPadApp() {
                     }
                 }
                 val topOpponentValue = opponents.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
-                summaryStats = Triple(gamesPlayed, winRate, null)
+                // Favorite opening extraction (improved regex)
+                val openingRegex = Regex("\\[Opening \"([^\"]+)\"\\]")
+                val openingList = games.mapNotNull { game ->
+                    // Uncomment the next line to debug PGN content:
+                    // println("PGN: ${game.pgn}")
+                    openingRegex.find(game.pgn)?.groupValues?.getOrNull(1)
+                }
+                val openingCounts = openingList.groupingBy { it }.eachCount()
+                val favoriteOpening = openingCounts.maxByOrNull { it.value }?.key ?: "N/A"
+                summaryStats = Triple(gamesPlayed, winRate, favoriteOpening)
                 topOpponent = topOpponentValue
             } else {
-                summaryStats = Triple(0, 0, null)
+                summaryStats = Triple(0, 0, "N/A")
                 topOpponent = null
             }
             isSummaryLoading = false
@@ -163,6 +173,11 @@ fun ChessPadApp() {
             topOpponent = topOpponent,
             onDone = {
                 hasEnteredUsername = false
+            },
+            onTryAnotherUser = {
+                hasEnteredUsername = false
+                syncedUsername = null
+                showSyncScreen = true
             }
         )
         else -> ChessGamesScreen(viewModel)

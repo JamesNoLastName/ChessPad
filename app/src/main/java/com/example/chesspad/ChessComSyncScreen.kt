@@ -19,28 +19,41 @@ suspend fun fetchChessComGames(username: String, maxGames: Int = 100): Result<Li
         val now = java.util.Calendar.getInstance()
         val year = now.get(java.util.Calendar.YEAR)
         val month = now.get(java.util.Calendar.MONTH) + 1
-        val apiUrl = "https://api.chess.com/pub/player/${username}/games/$year/${"%02d".format(month)}"
-        val response = URL(apiUrl).readText()
-        val json = JSONObject(response)
-        val gamesJson = json.getJSONArray("games")
-        val games = mutableListOf<ChessComGame>()
-        for (i in 0 until gamesJson.length()) {
-            if (games.size >= maxGames) break
-            val g = gamesJson.getJSONObject(i)
-            val whiteObj = g.getJSONObject("white")
-            val blackObj = g.getJSONObject("black")
-            games.add(
-                ChessComGame(
-                    url = g.getString("url"),
-                    white = whiteObj.getString("username"),
-                    whiteResult = whiteObj.optString("result", ""),
-                    black = blackObj.getString("username"),
-                    blackResult = blackObj.optString("result", ""),
-                    endTime = g.optLong("end_time", 0L)
-                )
-            )
+        val prevMonth = if (month == 1) 12 else month - 1
+        val prevYear = if (month == 1) year - 1 else year
+        val urls = listOf(
+            "https://api.chess.com/pub/player/${username}/games/$year/${"%02d".format(month)}",
+            "https://api.chess.com/pub/player/${username}/games/$prevYear/${"%02d".format(prevMonth)}"
+        )
+        val allGames = mutableListOf<ChessComGame>()
+        for (apiUrl in urls) {
+            try {
+                val response = URL(apiUrl).readText()
+                val json = JSONObject(response)
+                val gamesJson = json.getJSONArray("games")
+                for (i in 0 until gamesJson.length()) {
+                    if (allGames.size >= maxGames) break
+                    val g = gamesJson.getJSONObject(i)
+                    val whiteObj = g.getJSONObject("white")
+                    val blackObj = g.getJSONObject("black")
+                    val pgn = g.optString("pgn", "")
+                    allGames.add(
+                        ChessComGame(
+                            url = g.getString("url"),
+                            white = whiteObj.getString("username"),
+                            whiteResult = whiteObj.optString("result", ""),
+                            black = blackObj.getString("username"),
+                            blackResult = blackObj.optString("result", ""),
+                            endTime = g.optLong("end_time", 0L),
+                            pgn = pgn
+                        )
+                    )
+                }
+            } catch (_: Exception) {
+                // Ignore errors for missing months
+            }
         }
-        Result.success(games)
+        Result.success(allGames)
     } catch (e: Exception) {
         Result.failure(e)
     }
@@ -52,7 +65,8 @@ data class ChessComGame(
     val whiteResult: String,
     val black: String,
     val blackResult: String,
-    val endTime: Long
+    val endTime: Long,
+    val pgn: String
 )
 
 @Composable
