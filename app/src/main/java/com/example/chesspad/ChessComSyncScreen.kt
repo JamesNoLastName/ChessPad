@@ -14,6 +14,47 @@ import org.json.JSONObject
 import java.net.URL
 import kotlin.Result
 
+suspend fun fetchChessComGames(username: String, maxGames: Int = 100): Result<List<ChessComGame>> = withContext(Dispatchers.IO) {
+    try {
+        val now = java.util.Calendar.getInstance()
+        val year = now.get(java.util.Calendar.YEAR)
+        val month = now.get(java.util.Calendar.MONTH) + 1
+        val apiUrl = "https://api.chess.com/pub/player/${username}/games/$year/${"%02d".format(month)}"
+        val response = URL(apiUrl).readText()
+        val json = JSONObject(response)
+        val gamesJson = json.getJSONArray("games")
+        val games = mutableListOf<ChessComGame>()
+        for (i in 0 until gamesJson.length()) {
+            if (games.size >= maxGames) break
+            val g = gamesJson.getJSONObject(i)
+            val whiteObj = g.getJSONObject("white")
+            val blackObj = g.getJSONObject("black")
+            games.add(
+                ChessComGame(
+                    url = g.getString("url"),
+                    white = whiteObj.getString("username"),
+                    whiteResult = whiteObj.optString("result", ""),
+                    black = blackObj.getString("username"),
+                    blackResult = blackObj.optString("result", ""),
+                    endTime = g.optLong("end_time", 0L)
+                )
+            )
+        }
+        Result.success(games)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+}
+
+data class ChessComGame(
+    val url: String,
+    val white: String,
+    val whiteResult: String,
+    val black: String,
+    val blackResult: String,
+    val endTime: Long
+)
+
 @Composable
 fun ChessComSyncScreen(onUsernameEntered: (String) -> Unit) {
     var username by remember { mutableStateOf("") }
@@ -27,35 +68,6 @@ fun ChessComSyncScreen(onUsernameEntered: (String) -> Unit) {
     val pageSize = 20
     val pagedGames = games.take((currentPage + 1) * pageSize)
     val canLoadMore = games.size > pagedGames.size || games.size == (currentPage + 1) * pageSize
-
-    suspend fun fetchChessComGames(username: String, maxGames: Int = 100): Result<List<ChessComGame>> = withContext(Dispatchers.IO) {
-        try {
-            val now = java.util.Calendar.getInstance()
-            val year = now.get(java.util.Calendar.YEAR)
-            val month = now.get(java.util.Calendar.MONTH) + 1
-            val apiUrl = "https://api.chess.com/pub/player/${username}/games/$year/${"%02d".format(month)}"
-            val response = URL(apiUrl).readText()
-            val json = JSONObject(response)
-            val gamesJson = json.getJSONArray("games")
-            val games = mutableListOf<ChessComGame>()
-            for (i in 0 until gamesJson.length()) {
-                if (games.size >= maxGames) break
-                val g = gamesJson.getJSONObject(i)
-                games.add(
-                    ChessComGame(
-                        url = g.getString("url"),
-                        white = g.getJSONObject("white").getString("username"),
-                        black = g.getJSONObject("black").getString("username"),
-                        result = g.optString("result", ""),
-                        endTime = g.optLong("end_time", 0L)
-                    )
-                )
-            }
-            Result.success(games)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -137,14 +149,6 @@ fun ChessComSyncScreen(onUsernameEntered: (String) -> Unit) {
     }
 }
 
-data class ChessComGame(
-    val url: String,
-    val white: String,
-    val black: String,
-    val result: String,
-    val endTime: Long
-)
-
 @Composable
 fun ChessComGameItem(game: ChessComGame) {
     Card(
@@ -155,7 +159,7 @@ fun ChessComGameItem(game: ChessComGame) {
     ) {
         Column(modifier = Modifier.padding(8.dp)) {
             Text("${game.white} vs ${game.black}")
-            Text("Result: ${game.result}")
+            Text("Result: ${game.whiteResult} - ${game.blackResult}")
             val uriHandler = LocalUriHandler.current
             TextButton(onClick = { uriHandler.openUri(game.url) }) {
                 Text("View on Chess.com", color = MaterialTheme.colorScheme.primary)

@@ -40,6 +40,10 @@ import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.google.maps.android.compose.rememberMarkerState
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import org.json.JSONObject
+import java.net.URL
+import kotlin.Result
 
 import androidx.compose.ui.window.Dialog
 
@@ -60,6 +64,10 @@ import android.widget.FrameLayout
 
 
 import com.example.chesspad.ui.theme.ChessPadTheme
+import com.example.chesspad.SummaryScreen
+import com.example.chesspad.fetchChessComGames
+import com.example.chesspad.ChessComGame
+import com.example.chesspad.ChessComSyncScreen
 
 private const val STANDARD_START_FEN =
     "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
@@ -90,6 +98,42 @@ fun ChessPadApp() {
     var showSyncScreen by remember { mutableStateOf(false) }
     var hasEnteredUsername by remember { mutableStateOf(false) }
     var syncedUsername by remember { mutableStateOf<String?>(null) }
+    var isSummaryLoading by remember { mutableStateOf(false) }
+    var summaryStats by remember {
+        mutableStateOf<Triple<Int, Int, String?>>(Triple(0, 0, null))
+    }
+    var topOpponent by remember { mutableStateOf<String?>(null) }
+    val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(hasEnteredUsername, syncedUsername) {
+        if (hasEnteredUsername && syncedUsername != null) {
+            isSummaryLoading = true
+            val result = fetchChessComGames(syncedUsername!!)
+            if (result.isSuccess) {
+                val games = result.getOrNull() ?: emptyList()
+                val gamesPlayed = games.size
+                val wins = games.count {
+                    (it.white.equals(syncedUsername, ignoreCase = true) && it.whiteResult == "win") ||
+                    (it.black.equals(syncedUsername, ignoreCase = true) && it.blackResult == "win")
+                }
+                val winRate = if (gamesPlayed > 0) (wins * 100 / gamesPlayed) else 0
+                val opponents = games.mapNotNull {
+                    when (syncedUsername!!.lowercase()) {
+                        it.white.lowercase() -> it.black
+                        it.black.lowercase() -> it.white
+                        else -> null
+                    }
+                }
+                val topOpponentValue = opponents.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
+                summaryStats = Triple(gamesPlayed, winRate, null)
+                topOpponent = topOpponentValue
+            } else {
+                summaryStats = Triple(0, 0, null)
+                topOpponent = null
+            }
+            isSummaryLoading = false
+        }
+    }
 
     LaunchedEffect(Unit) {
         delay(3000)
@@ -104,6 +148,21 @@ fun ChessPadApp() {
                 syncedUsername = username
                 hasEnteredUsername = true
                 showSyncScreen = false
+            }
+        )
+        hasEnteredUsername && syncedUsername != null && isSummaryLoading -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        }
+        hasEnteredUsername && syncedUsername != null && !isSummaryLoading -> SummaryScreen(
+            username = syncedUsername ?: "",
+            gamesPlayed = summaryStats.first,
+            winRate = summaryStats.second,
+            favoriteOpening = summaryStats.third,
+            topOpponent = topOpponent,
+            onDone = {
+                hasEnteredUsername = false
             }
         )
         else -> ChessGamesScreen(viewModel)
