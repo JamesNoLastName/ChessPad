@@ -48,7 +48,6 @@ android {
     }
 }
 
-
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -63,9 +62,6 @@ dependencies {
     implementation("com.google.android.gms:play-services-maps:18.1.0")
     implementation("com.google.maps.android:maps-compose:2.11.0")
 
-    implementation(libs.androidx.lifecycle.viewmodel.compose)
-    implementation(libs.androidx.lifecycle.viewmodel.ktx)
-    implementation(libs.androidx.lifecycle.viewmodel.compose.v262)
     // Room dependencies
     implementation(libs.androidx.room.runtime)
     kapt(libs.androidx.room.compiler)  // for annotation processing
@@ -75,9 +71,11 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
 
-    //chess board dependencies
+    // Chess board dependencies
     implementation("com.github.bakkenbaeck:chessboardeditor:v1.0.2")
 
+    // Navigation Compose
+    implementation("androidx.navigation:navigation-compose:2.7.7")
 
     // Testing dependencies
     testImplementation(libs.junit)

@@ -46,9 +46,7 @@ fun GameNotesScreen(
             }
         }
         Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = onDone, modifier = Modifier.fillMaxWidth()) {
-            Text("Done")
-        }
+
     }
     // Note dialog
     if (editingNoteForUrl != null) {
