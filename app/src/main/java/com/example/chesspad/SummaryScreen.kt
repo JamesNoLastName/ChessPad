@@ -1,5 +1,6 @@
 package com.example.chesspad
-
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,14 +16,16 @@ import androidx.compose.ui.unit.sp
 
 @Composable
 fun SummaryScreen(
-    username: String,
-    gamesPlayed: Int,
-    winRate: Int,
-    favoriteOpening: String?,
-    topOpponent: String?,
+    viewModel: SummaryViewModel,
     onDone: () -> Unit,
     onTryAnotherUser: () -> Unit
 ) {
+    val username by viewModel.username.collectAsState()
+    val gamesPlayed by viewModel.gamesPlayed.collectAsState()
+    val winRate by viewModel.winRate.collectAsState()
+    val favoriteOpening by viewModel.favoriteOpening.collectAsState()
+    val topOpponent by viewModel.topOpponent.collectAsState()
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -52,7 +55,7 @@ fun SummaryScreen(
                 )
                 Text("Games Played: $gamesPlayed", fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("Win Rate: $winRate%", fontSize = 22.sp)
+                Text("Win Rate: ${"%.1f".format(winRate * 100)}%", fontSize = 22.sp)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text("Favorite Opening: ${favoriteOpening ?: "N/A"}", fontSize = 20.sp)
                 Spacer(modifier = Modifier.height(8.dp))

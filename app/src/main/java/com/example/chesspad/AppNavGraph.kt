@@ -22,15 +22,8 @@ fun AppNavGraph(navController: NavHostController) {
 
         composable("sync") {
             ChessComSyncScreen(
-                onUsernameEntered = { username, startYear, startMonth, endYear, endMonth ->
-                    // TODO: Replace these mock values with actual API results
-                    summaryViewModel.setSummaryData(
-                        username = username,
-                        gamesPlayed = 42,
-                        winRate = 65.0f,
-                        favoriteOpening = "Queen's Gambit",
-                        topOpponent = "chessMaster123"
-                    )
+                onUsernameEntered = { username, startY, startM, endY, endM, games ->
+                    summaryViewModel.processGames(username, games)
                     navController.navigate("summary")
                 },
                 onGoToSummary = {
@@ -41,20 +34,9 @@ fun AppNavGraph(navController: NavHostController) {
 
         composable("summary") {
             SummaryScreen(
-                username = summaryViewModel.username.collectAsState().value,
-                gamesPlayed = summaryViewModel.gamesPlayed.collectAsState().value,
-                winRate = summaryViewModel.winRate.collectAsState().value.toInt(),
-                favoriteOpening = summaryViewModel.favoriteOpening.collectAsState().value,
-                topOpponent = summaryViewModel.topOpponent.collectAsState().value,
-                onDone = {
-                    // You could navigate somewhere or close the app
-                },
-                onTryAnotherUser = {
-                    summaryViewModel.setSummaryData("", 0, 0f, null, null)
-                    navController.navigate("sync") {
-                        popUpTo("sync") { inclusive = true }
-                    }
-                }
+                viewModel = summaryViewModel,
+                onDone = { /*...*/ },
+                onTryAnotherUser = { /*...*/ }
             )
         }
     }

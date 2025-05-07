@@ -60,7 +60,8 @@ suspend fun fetchChessComGames(username: String, startYear: Int, startMonth: Int
                             black = blackObj.getString("username"),
                             blackResult = blackObj.optString("result", ""),
                             endTime = g.optLong("end_time", 0L),
-                            pgn = pgn
+                            pgn = pgn,
+                            opening = g.optString("opening", null)
                         )
                     )
                 }
@@ -81,12 +82,13 @@ data class ChessComGame(
     val black: String,
     val blackResult: String,
     val endTime: Long,
-    val pgn: String
+    val pgn: String,
+    val opening: String?
 )
 
 @Composable
 fun ChessComSyncScreen(
-    onUsernameEntered: (String, Int, Int, Int, Int) -> Unit,
+    onUsernameEntered: (String, Int, Int, Int, Int, List<ChessComGame>) -> Unit,
     onGoToSummary: () -> Unit
 ) {
     var username by remember { mutableStateOf("") }
@@ -183,7 +185,9 @@ fun ChessComSyncScreen(
             }
             if (showNextButton) {
                 Spacer(modifier = Modifier.height(16.dp))
-                Button(onClick = { onUsernameEntered(username, startYear, startMonth, endYear, endMonth) }) {
+                Button(onClick = {
+                    onUsernameEntered(username, startYear, startMonth, endYear, endMonth, games)
+                }) {
                     Text("Go to Next Page")
                 }
             }
