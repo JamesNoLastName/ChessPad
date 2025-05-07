@@ -28,7 +28,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.layout.*
-
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import org.json.JSONObject
 import androidx.compose.ui.text.font.FontWeight
 import java.io.File
@@ -99,7 +100,8 @@ data class ChessComGame(
 @Composable
 fun ChessComSyncScreen(
     onUsernameEntered: (String, Int, Int, Int, Int, List<ChessComGame>) -> Unit,
-    onGoToSummary: () -> Unit
+    onGoToSummary: () -> Unit,
+    onFilesClick: () -> Unit
 ) {
     var username by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
@@ -142,7 +144,7 @@ fun ChessComSyncScreen(
         bottomBar = {
             BottomNavBar(
                 onSearchClick = { /* Handle Search click */ },
-                onFilesClick = { /* Handle Files click */ },
+                onFilesClick = onFilesClick,
                 isSearchSelected = currentPage == 1 // for example
             )
         }
@@ -362,23 +364,53 @@ fun ChessComSyncScreen(
 }
 
 @Composable
-fun ChessComGameItem(game: ChessComGame) {
+fun ChessComGameItem(
+    game: ChessComGame,
+    onAddToDatabaseClick: () -> Unit,
+    onViewClick: () -> Unit
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
-        Column(modifier = Modifier.padding(8.dp)) {
-            Text("${game.white} vs ${game.black}")
-            Text("Result: ${game.whiteResult} - ${game.blackResult}")
-            val uriHandler = LocalUriHandler.current
-            TextButton(onClick = { uriHandler.openUri(game.url) }) {
-                Text("View on Chess.com", color = MaterialTheme.colorScheme.primary)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp)
+        ) {
+            // Game details content
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = 40.dp) // Leave space for icon
+            ) {
+                Text("${game.white} vs ${game.black}")
+                Text("Result: ${game.whiteResult} - ${game.blackResult}")
+                Spacer(modifier = Modifier.height(4.dp))
+
+                TextButton(onClick = onViewClick) {
+                    Text("View on Chess.com", color = MaterialTheme.colorScheme.primary)
+                }
+            }
+
+            // Plus icon in top right
+            IconButton(
+                onClick = onAddToDatabaseClick,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Add to Database",
+                    tint = MaterialTheme.colorScheme.primary
+                )
             }
         }
     }
 }
+
 @Composable
 fun BottomNavBar(
     onSearchClick: () -> Unit,

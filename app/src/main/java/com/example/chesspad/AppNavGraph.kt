@@ -28,6 +28,9 @@ fun AppNavGraph(navController: NavHostController) {
                 },
                 onGoToSummary = {
                     navController.navigate("summary")
+                },
+                onFilesClick = {
+                    navController.navigate("notes")
                 }
             )
         }
@@ -41,6 +44,13 @@ fun AppNavGraph(navController: NavHostController) {
                         popUpTo("summary") { inclusive = true }
                     }
                 }
+            )
+        }
+        composable("notes") {
+            GameNotesScreen(
+                games = listOf(), // Pass the required data
+                onDone = { /* Handle onDone action */ },
+                navController = navController // Pass navController to allow navigation
             )
         }
     }

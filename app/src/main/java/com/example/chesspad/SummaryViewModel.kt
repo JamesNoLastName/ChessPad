@@ -1,9 +1,9 @@
 package com.example.chesspad
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 
 class SummaryViewModel : ViewModel() {
@@ -21,6 +21,10 @@ class SummaryViewModel : ViewModel() {
 
     private val _topOpponent = MutableStateFlow<String?>(null)
     val topOpponent: StateFlow<String?> = _topOpponent
+
+    // ✅ ADD THIS
+    private val _games = MutableStateFlow<List<ChessComGame>>(emptyList())
+    val games: StateFlow<List<ChessComGame>> = _games
 
     fun setSummaryData(
         username: String,
@@ -48,7 +52,10 @@ class SummaryViewModel : ViewModel() {
             )
         }
     }
+
     fun processGames(username: String, games: List<ChessComGame>) {
+        _games.value = games // ✅ store the game list
+
         val wins = games.count {
             (it.white == username && it.whiteResult == "win") ||
                     (it.black == username && it.blackResult == "win")
@@ -61,9 +68,8 @@ class SummaryViewModel : ViewModel() {
         }
         val topOpponent = opponents.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
 
-        // ✅ NEW: compute favorite opening
         val favoriteOpening = games
-            .mapNotNull { it.opening } // make sure opening is not null
+            .mapNotNull { it.opening }
             .groupingBy { it }
             .eachCount()
             .maxByOrNull { it.value }
