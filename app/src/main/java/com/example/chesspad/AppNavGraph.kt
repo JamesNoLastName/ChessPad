@@ -35,8 +35,12 @@ fun AppNavGraph(navController: NavHostController) {
         composable("summary") {
             SummaryScreen(
                 viewModel = summaryViewModel,
-                onDone = { /*...*/ },
-                onTryAnotherUser = { /*...*/ }
+                onDone = { /* Optionally handle completion here */ },
+                onTryAnotherUser = {
+                    navController.navigate("sync") {
+                        popUpTo("summary") { inclusive = true }
+                    }
+                }
             )
         }
     }

@@ -13,14 +13,24 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.PermissionChecker
 import kotlinx.coroutines.*
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.layout.*
+
 import org.json.JSONObject
+import androidx.compose.ui.text.font.FontWeight
 import java.io.File
 import java.net.URL
 import java.util.Calendar
@@ -128,7 +138,14 @@ fun ChessComSyncScreen(
     val canLoadMore = games.size > pagedGames.size || games.size == (currentPage + 1) * pageSize
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        bottomBar = {
+            BottomNavBar(
+                onSearchClick = { /* Handle Search click */ },
+                onFilesClick = { /* Handle Files click */ },
+                isSearchSelected = currentPage == 1 // for example
+            )
+        }
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -159,35 +176,44 @@ fun ChessComSyncScreen(
                     onMonthChange = { endMonth = it })
             }
             Spacer(modifier = Modifier.height(8.dp))
-            Button(
-                onClick = {
-                    error = null
-                    isLoading = true
-                    games = emptyList()
-                    showNextButton = false
-                    currentPage = 0
-                    coroutineScope.launch {
-                        val result = fetchChessComGames(username, startYear, startMonth, endYear, endMonth, maxGames = 100)
-                        isLoading = false
-                        if (result.isSuccess) {
-                            games = result.getOrDefault(emptyList())
-                            snackbarHostState.showSnackbar("Data fetched successfully!")
-                            showNextButton = true
-                        } else {
-                            error = result.exceptionOrNull()?.message ?: "This user does not exist."
-                            snackbarHostState.showSnackbar(error!!)
-                        }
-                    }
-                },
-                enabled = username.isNotBlank() && !isLoading
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center
             ) {
-                Text("Sync Games")
-            }
-            if (showNextButton) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(onClick = {
-                    onUsernameEntered(username, startYear, startMonth, endYear, endMonth, games)
-                }) {
+                Button(
+                    onClick = {
+                        error = null
+                        isLoading = true
+                        games = emptyList()
+                        showNextButton = false
+                        currentPage = 0
+                        coroutineScope.launch {
+                            val result = fetchChessComGames(username, startYear, startMonth, endYear, endMonth, maxGames = 100)
+                            isLoading = false
+                            if (result.isSuccess) {
+                                games = result.getOrDefault(emptyList())
+                                snackbarHostState.showSnackbar("Data fetched successfully!")
+                                showNextButton = true
+                            } else {
+                                error = result.exceptionOrNull()?.message ?: "This user does not exist."
+                                snackbarHostState.showSnackbar(error!!)
+                            }
+                        }
+                    },
+                    enabled = username.isNotBlank() && !isLoading,
+                    modifier = Modifier.padding(8.dp)
+                ) {
+                    Text("Sync Games")
+                }
+
+                Button(
+                    onClick = {
+                        onUsernameEntered(username, startYear, startMonth, endYear, endMonth, games)
+                    },
+                    enabled = showNextButton,
+                    modifier = Modifier.padding(8.dp)
+                ) {
                     Text("Go to Next Page")
                 }
             }
@@ -307,6 +333,7 @@ fun ChessComSyncScreen(
                 }
             }
         }
+
         // Note dialog
         if (editingNoteForUrl != null) {
             AlertDialog(
@@ -352,6 +379,65 @@ fun ChessComGameItem(game: ChessComGame) {
         }
     }
 }
+@Composable
+fun BottomNavBar(
+    onSearchClick: () -> Unit,
+    onFilesClick: () -> Unit,
+    isSearchSelected: Boolean // Pass this from parent to highlight the selected tab
+) {
+    Surface(
+        color = Color(0xFF332B50), // Darker purple for the navbar
+        shadowElevation = 8.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(72.dp), // Increased height
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Search Section (highlighted if selected)
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .background(if (isSearchSelected) Color(0xFF4B3F74) else Color.Transparent) // Highlight search tab
+                    .clickable { onSearchClick() },
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.mag),
+                    contentDescription = "Search",
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+
+            // Divider between Search and Files
+            Box(
+                modifier = Modifier
+                    .width(1.dp)
+                    .fillMaxHeight()
+                    .background(Color.Black)
+            )
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .background(if (!isSearchSelected) Color(0xFF4B3F74) else Color.Transparent) // Highlight files tab when search is not selected
+                    .clickable { onFilesClick() },
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.notes),
+                    contentDescription = "Files",
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+        }
+    }
+}
+
+
 
 @Composable
 fun YearMonthDropdown(year: Int, month: Int, onYearChange: (Int) -> Unit, onMonthChange: (Int) -> Unit) {
@@ -393,7 +479,6 @@ fun YearMonthDropdown(year: Int, month: Int, onYearChange: (Int) -> Unit, onMont
     }
 }
 
-// Helper to get unique file path for each game
 fun getVoiceMemoFilePath(context: Context, url: String): String {
     val fileName = url.hashCode().toString() + ".3gp"
     val dir = context.getExternalFilesDir(Environment.DIRECTORY_MUSIC)
