@@ -249,11 +249,23 @@ fun ChessComSyncScreen(
                                     Text("View on Chess.com", color = MaterialTheme.colorScheme.primary)
                                 }
                                 Spacer(modifier = Modifier.height(4.dp))
-                                Button(onClick = {
-                                    editingNoteForUrl = game.url
-                                    noteText = notes[game.url] ?: ""
-                                }) {
-                                    Text(if (notes[game.url].isNullOrBlank()) "Add Note" else "Edit Note")
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween // To space them apart
+                                ) {
+                                    Button(onClick = {
+                                        editingNoteForUrl = game.url
+                                        noteText = notes[game.url] ?: ""
+                                    }) {
+                                        Text(if (notes[game.url].isNullOrBlank()) "Add Note" else "Edit Note")
+                                    }
+
+                                    // Future function for second button, currently does nothing
+                                    Button(onClick = {
+                                        // Future functionality here
+                                    }) {
+                                        Text("+")
+                                    }
                                 }
                                 if (!notes[game.url].isNullOrBlank()) {
                                     Text("Note: ${notes[game.url]}", modifier = Modifier.padding(top = 4.dp))
@@ -380,32 +392,20 @@ fun ChessComGameItem(
                 .fillMaxWidth()
                 .padding(8.dp)
         ) {
-            // Game details content
-            Column(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(end = 40.dp) // Leave space for icon
+                    .padding(end = 40.dp) // Leave space for the icon
             ) {
-                Text("${game.white} vs ${game.black}")
-                Text("Result: ${game.whiteResult} - ${game.blackResult}")
-                Spacer(modifier = Modifier.height(4.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("${game.white} vs ${game.black}")
+                    Text("Result: ${game.whiteResult} - ${game.blackResult}")
+                    Spacer(modifier = Modifier.height(4.dp))
 
-                TextButton(onClick = onViewClick) {
-                    Text("View on Chess.com", color = MaterialTheme.colorScheme.primary)
+                    TextButton(onClick = onViewClick) {
+                        Text("View on Chess.com", color = MaterialTheme.colorScheme.primary)
+                    }
                 }
-            }
-
-            // Plus icon in top right
-            IconButton(
-                onClick = onAddToDatabaseClick,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Add to Database",
-                    tint = MaterialTheme.colorScheme.primary
-                )
             }
         }
     }
