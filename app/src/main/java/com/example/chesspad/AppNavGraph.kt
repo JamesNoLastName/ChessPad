@@ -10,6 +10,7 @@ import androidx.navigation.compose.composable
 @Composable
 fun AppNavGraph(navController: NavHostController) {
     val summaryViewModel: SummaryViewModel = viewModel()
+    val gameNotesViewModel: GameNotesViewModel = viewModel()
 
     NavHost(navController = navController, startDestination = "splash") {
         composable("splash") {
@@ -22,6 +23,7 @@ fun AppNavGraph(navController: NavHostController) {
 
         composable("sync") {
             ChessComSyncScreen(
+                gameNotesViewModel = gameNotesViewModel,
                 onUsernameEntered = { username, startY, startM, endY, endM, games ->
                     summaryViewModel.processGames(username, games)
                     navController.navigate("summary")
@@ -47,10 +49,11 @@ fun AppNavGraph(navController: NavHostController) {
             )
         }
         composable("notes") {
+            val games = gameNotesViewModel.savedGames.collectAsState().value
             GameNotesScreen(
-                games = listOf(), // Pass the required data
+                games = games,
                 onDone = { /* Handle onDone action */ },
-                navController = navController // Pass navController to allow navigation
+                navController = navController
             )
         }
     }

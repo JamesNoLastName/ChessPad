@@ -99,6 +99,7 @@ data class ChessComGame(
 
 @Composable
 fun ChessComSyncScreen(
+    gameNotesViewModel: GameNotesViewModel,
     onUsernameEntered: (String, Int, Int, Int, Int, List<ChessComGame>) -> Unit,
     onGoToSummary: () -> Unit,
     onFilesClick: () -> Unit
@@ -259,10 +260,11 @@ fun ChessComSyncScreen(
                                     }) {
                                         Text(if (notes[game.url].isNullOrBlank()) "Add Note" else "Edit Note")
                                     }
-
-                                    // Future function for second button, currently does nothing
                                     Button(onClick = {
-                                        // Future functionality here
+                                        gameNotesViewModel.addGame(game)
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar("Game added to notes!")
+                                        }
                                     }) {
                                         Text("+")
                                     }
@@ -375,41 +377,6 @@ fun ChessComSyncScreen(
     }
 }
 
-@Composable
-fun ChessComGameItem(
-    game: ChessComGame,
-    onAddToDatabaseClick: () -> Unit,
-    onViewClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        elevation = CardDefaults.cardElevation(2.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(end = 40.dp) // Leave space for the icon
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("${game.white} vs ${game.black}")
-                    Text("Result: ${game.whiteResult} - ${game.blackResult}")
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    TextButton(onClick = onViewClick) {
-                        Text("View on Chess.com", color = MaterialTheme.colorScheme.primary)
-                    }
-                }
-            }
-        }
-    }
-}
 
 @Composable
 fun BottomNavBar(

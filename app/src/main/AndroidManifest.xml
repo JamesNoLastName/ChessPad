@@ -1,6 +1,7 @@
-<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:allowBackup="true"
@@ -16,7 +17,7 @@
         <!-- Add your Maps API key here -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyAMUPy7Pep0tX645rbVyG60v1Bb9ywcf88" />
+            android:value="YOUR_GOOGLE_MAPS_API_KEY" /> <!-- Replace with actual API key -->
 
         <activity
             android:name=".MainActivity"
