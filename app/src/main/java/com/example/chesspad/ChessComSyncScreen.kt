@@ -4,6 +4,8 @@ import android.Manifest
 import android.content.Context
 import android.media.MediaPlayer
 import android.media.MediaRecorder
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Environment
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,6 +20,9 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.PermissionChecker
+import android.util.Log
+import java.io.IOException
+import java.net.UnknownHostException
 import kotlinx.coroutines.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -33,57 +38,22 @@ import androidx.compose.material.icons.filled.Add
 import org.json.JSONObject
 import androidx.compose.ui.text.font.FontWeight
 import java.io.File
-import java.net.URL
+import java.net.*
 import java.util.Calendar
 import kotlin.Result
 
-suspend fun fetchChessComGames(username: String, startYear: Int, startMonth: Int, endYear: Int, endMonth: Int, maxGames: Int = 100): Result<List<ChessComGame>> = withContext(Dispatchers.IO) {
-    try {
-        val urls = mutableListOf<String>()
-        var year = startYear
-        var month = startMonth
-        while (year < endYear || (year == endYear && month <= endMonth)) {
-            urls.add("https://api.chess.com/pub/player/${username}/games/$year/${"%02d".format(month)}")
-            if (month == 12) {
-                month = 1
-                year += 1
-            } else {
-                month += 1
-            }
-        }
-        val allGames = mutableListOf<ChessComGame>()
-        for (apiUrl in urls) {
-            try {
-                val response = URL(apiUrl).readText()
-                val json = JSONObject(response)
-                val gamesJson = json.getJSONArray("games")
-                for (i in 0 until gamesJson.length()) {
-                    if (allGames.size >= maxGames) break
-                    val g = gamesJson.getJSONObject(i)
-                    val whiteObj = g.getJSONObject("white")
-                    val blackObj = g.getJSONObject("black")
-                    val pgn = g.optString("pgn", "")
-                    allGames.add(
-                        ChessComGame(
-                            url = g.getString("url"),
-                            white = whiteObj.getString("username"),
-                            whiteResult = whiteObj.optString("result", ""),
-                            black = blackObj.getString("username"),
-                            blackResult = blackObj.optString("result", ""),
-                            endTime = g.optLong("end_time", 0L),
-                            pgn = pgn,
-                            opening = g.optString("opening", null)
-                        )
-                    )
-                }
-            } catch (_: Exception) {
-                // Ignore errors for missing months
-            }
-        }
-        Result.success(allGames)
-    } catch (e: Exception) {
-        Result.failure(e)
-    }
+fun isNetworkAvailable(context: Context): Boolean {
+    val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    val network = connectivityManager.activeNetwork ?: return false
+    val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+
+    val hasValidated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    val hasInternet = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+
+    Log.d("ChessPad", "Network capabilities – validated=$hasValidated, internet=$hasInternet")
+
+    // Some networks (emulator, captive portal, blocked connectivity check) may miss VALIDATED even though internet works
+    return hasValidated || hasInternet
 }
 
 data class ChessComGame(
@@ -187,6 +157,13 @@ fun ChessComSyncScreen(
                 Button(
                     onClick = {
                         error = null
+                        if (!isNetworkAvailable(context)) {
+                            error = "No internet connection. Please check your network and try again."
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar(error!!)
+                            }
+                            return@Button
+                        }
                         isLoading = true
                         games = emptyList()
                         showNextButton = false
@@ -195,12 +172,24 @@ fun ChessComSyncScreen(
                             val result = fetchChessComGames(username, startYear, startMonth, endYear, endMonth, maxGames = 100)
                             isLoading = false
                             if (result.isSuccess) {
-                                games = result.getOrDefault(emptyList())
-                                snackbarHostState.showSnackbar("Data fetched successfully!")
-                                showNextButton = true
+                                val fetched = result.getOrDefault(emptyList())
+                                if (fetched.isEmpty()) {
+                                    error = "No games found in the selected period."
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar(error!!)
+                                    }
+                                } else {
+                                    games = fetched
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar("Data fetched successfully!")
+                                    }
+                                    showNextButton = true
+                                }
                             } else {
                                 error = result.exceptionOrNull()?.message ?: "This user does not exist."
-                                snackbarHostState.showSnackbar(error!!)
+                                coroutineScope.launch {
+                                    snackbarHostState.showSnackbar(error!!)
+                                }
                             }
                         }
                     },
@@ -482,4 +471,73 @@ fun getVoiceMemoFilePath(context: Context, url: String): String {
     val fileName = url.hashCode().toString() + ".3gp"
     val dir = context.getExternalFilesDir(Environment.DIRECTORY_MUSIC)
     return File(dir, fileName).absolutePath
+}
+
+suspend fun fetchChessComGames(username: String, startYear: Int, startMonth: Int, endYear: Int, endMonth: Int, maxGames: Int = 100): Result<List<ChessComGame>> = withContext(Dispatchers.IO) {
+    try {
+        val urls = mutableListOf<String>()
+        var year = startYear
+        var month = startMonth
+        while (year < endYear || (year == endYear && month <= endMonth)) {
+            urls.add("https://api.chess.com/pub/player/${username.lowercase()}/games/$year/${"%02d".format(month)}")
+            if (month == 12) {
+                month = 1
+                year += 1
+            } else {
+                month += 1
+            }
+        }
+
+        val allGames = mutableListOf<ChessComGame>()
+        var lastError: Exception? = null
+
+        for (apiUrl in urls) {
+            try {
+                val connection = (URL(apiUrl).openConnection() as HttpURLConnection).apply {
+                    connectTimeout = 10_000
+                    readTimeout = 10_000
+                    setRequestProperty("User-Agent", "ChessPad Android")
+                }
+
+                if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                    throw IOException("HTTP ${connection.responseCode}")
+                }
+
+                val response = connection.inputStream.bufferedReader().use { it.readText() }
+                val json = JSONObject(response)
+                val gamesJson = json.getJSONArray("games")
+                for (i in 0 until gamesJson.length()) {
+                    if (allGames.size >= maxGames) break
+                    val g = gamesJson.getJSONObject(i)
+                    val whiteObj = g.getJSONObject("white")
+                    val blackObj = g.getJSONObject("black")
+                    val pgn = g.optString("pgn", "")
+                    allGames.add(
+                        ChessComGame(
+                            url = g.getString("url"),
+                            white = whiteObj.getString("username"),
+                            whiteResult = whiteObj.optString("result", ""),
+                            black = blackObj.getString("username"),
+                            blackResult = blackObj.optString("result", ""),
+                            endTime = g.optLong("end_time", 0L),
+                            pgn = pgn,
+                            opening = g.optString("opening", null)
+                        )
+                    )
+                }
+            } catch (e: UnknownHostException) {
+                lastError = UnknownHostException("Unable to reach api.chess.com. Please check your internet connection or DNS settings.")
+            } catch (e: Exception) {
+                lastError = e
+            }
+        }
+
+        when {
+            allGames.isNotEmpty() -> Result.success(allGames)
+            lastError != null -> Result.failure(lastError!!)
+            else -> Result.failure(Exception("No games found in the selected period"))
+        }
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
 }
