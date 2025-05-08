@@ -85,6 +85,8 @@ fun GameNotesScreen(
                         .fillMaxWidth()
                 ) {
                     items(savedGames) { game ->
+                        val gameDetails = gameNotesViewModel.gameDetails.collectAsState().value[game.url]
+
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -95,15 +97,9 @@ fun GameNotesScreen(
                                 Text("${game.white} vs ${game.black}")
                                 Text("Result: ${game.whiteResult} - ${game.blackResult}")
 
-                                // Get the note and voice memo for this game
-                                var note by remember { mutableStateOf<String?>(null) }
-                                var voiceMemoPath by remember { mutableStateOf<String?>(null) }
-
-                                // Load note and voice memo from database
+                                // Load game details when card is displayed
                                 LaunchedEffect(game.url) {
-                                    val gameEntity = gameNotesViewModel.repository.getGameByUrl(game.url)
-                                    note = gameEntity?.note
-                                    voiceMemoPath = gameEntity?.voiceMemoPath
+                                    gameNotesViewModel.loadGameDetails(game.url)
                                 }
 
                                 Spacer(modifier = Modifier.height(4.dp))
@@ -113,9 +109,9 @@ fun GameNotesScreen(
                                 ) {
                                     Button(onClick = {
                                         editingNoteForUrl = game.url
-                                        noteText = note ?: ""
+                                        noteText = gameDetails?.note ?: ""
                                     }) {
-                                        Text(if (note.isNullOrBlank()) "Add Note" else "Edit Note")
+                                        Text(if (gameDetails?.note.isNullOrBlank()) "Add Note" else "Edit Note")
                                     }
 
                                     Button(onClick = {
@@ -128,12 +124,14 @@ fun GameNotesScreen(
                                     }
                                 }
 
-                                if (!note.isNullOrBlank()) {
-                                    Text("Note: $note", modifier = Modifier.padding(top = 4.dp))
+                                // Display note if available
+                                if (!gameDetails?.note.isNullOrBlank()) {
+                                    Text("Note: ${gameDetails?.note}", modifier = Modifier.padding(top = 4.dp))
                                 }
 
                                 // Voice memo playback section
-                                if (!voiceMemoPath.isNullOrBlank() && File(voiceMemoPath!!).exists()) {
+                                val voiceMemoPath = gameDetails?.voiceMemoPath
+                                if (!voiceMemoPath.isNullOrBlank() && File(voiceMemoPath).exists()) {
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Button(onClick = {
                                         if (playingGameUrl == game.url) {
