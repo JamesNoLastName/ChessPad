@@ -119,6 +119,23 @@ fun ChessComSyncScreen(
     val canLoadMore = games.size > pagedGames.size || games.size == (currentPage + 1) * pageSize
 
     Scaffold(
+        topBar = {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF4B3F74))
+                    .padding(vertical = 24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Game Search",
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = Color.White
+                )
+            }
+        },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             BottomNavBar(
@@ -214,7 +231,7 @@ fun ChessComSyncScreen(
                     enabled = showNextButton,
                     modifier = Modifier.padding(8.dp)
                 ) {
-                    Text("Go to Next Page")
+                    Text("Summary")
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))

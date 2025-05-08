@@ -48,7 +48,7 @@ fun SummaryScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "Your ChessPad Wrapped, $username!",
+                    text = "Statistics for $username:",
                     style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
                     color = Color(0xFF6650A4),
                     modifier = Modifier.padding(bottom = 24.dp)
@@ -61,12 +61,9 @@ fun SummaryScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 Text("Top Opponent: ${topOpponent ?: "N/A"}", fontSize = 20.sp)
                 Spacer(modifier = Modifier.height(32.dp))
-                Button(onClick = onDone) {
-                    Text("Done")
-                }
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(onClick = onTryAnotherUser) {
-                    Text("Try Another User")
+                    Text("Try Another User!")
                 }
             }
         }

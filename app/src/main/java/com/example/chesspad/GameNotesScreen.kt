@@ -17,6 +17,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import java.io.File
+import androidx.compose.ui.text.font.FontWeight
 import android.media.MediaPlayer
 import kotlinx.coroutines.launch
 
@@ -46,6 +47,23 @@ fun GameNotesScreen(
     var playingGameUrl by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
+        topBar = {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF4B3F74))
+                    .padding(vertical = 24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Your Saved Games",
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = Color.White
+                )
+            }
+        },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             FBottomNavBar(
@@ -65,10 +83,7 @@ fun GameNotesScreen(
                 .padding(innerPadding)
                 .padding(16.dp)
         ) {
-            Text(
-                "Your Saved Games",
-                style = MaterialTheme.typography.headlineSmall
-            )
+
             Spacer(modifier = Modifier.height(16.dp))
 
             if (savedGames.isEmpty()) {
@@ -114,13 +129,17 @@ fun GameNotesScreen(
                                         Text(if (gameDetails?.note.isNullOrBlank()) "Add Note" else "Edit Note")
                                     }
 
-                                    Button(onClick = {
+                                    IconButton(onClick = {
                                         coroutineScope.launch {
                                             gameNotesViewModel.deleteGame(game)
                                             snackbarHostState.showSnackbar("Game removed from notes")
                                         }
                                     }) {
-                                        Text("Delete")
+                                        Image(
+                                            painter = painterResource(id = R.drawable.trash),
+                                            contentDescription = "Delete",
+                                            modifier = Modifier.size(24.dp)
+                                        )
                                     }
                                 }
 
@@ -211,21 +230,20 @@ fun FBottomNavBar(
     isSearchSelected: Boolean // Pass this from parent to highlight the selected tab
 ) {
     Surface(
-        color = Color(0xFF332B50), // Darker purple for the navbar
+        color = Color(0xFF332B50),
         shadowElevation = 8.dp
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(72.dp), // Increased height
+                .height(72.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Search Section (highlighted if selected)
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .background(if (isSearchSelected) Color(0xFF4B3F74) else Color.Transparent) // Highlight search tab
+                    .background(Color(0xFF4B3F74))
                     .clickable { onSearchClick() },
                 contentAlignment = Alignment.Center
             ) {
@@ -248,7 +266,7 @@ fun FBottomNavBar(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .background(if (!isSearchSelected) Color(0xFF4B3F74) else Color.Transparent) // Highlight files tab when search is not selected
+                    .background(Color.Transparent)
                     .clickable { onFilesClick() },
                 contentAlignment = Alignment.Center
             ) {
