@@ -22,7 +22,6 @@ class SummaryViewModel : ViewModel() {
     private val _topOpponent = MutableStateFlow<String?>(null)
     val topOpponent: StateFlow<String?> = _topOpponent
 
-    // ✅ ADD THIS
     private val _games = MutableStateFlow<List<ChessComGame>>(emptyList())
     val games: StateFlow<List<ChessComGame>> = _games
 

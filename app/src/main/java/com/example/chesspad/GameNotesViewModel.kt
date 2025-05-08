@@ -5,11 +5,12 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.SharingStarted
 
 class GameNotesViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -27,37 +28,37 @@ class GameNotesViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun addGame(game: ChessComGame) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             repository.insert(game)
         }
     }
 
     fun addGameWithNote(game: ChessComGame, note: String?) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             repository.insert(game, note)
         }
     }
 
     fun addGameWithVoiceMemo(game: ChessComGame, voiceMemoPath: String?) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) { // Ensure this runs in the background thread
             repository.insert(game, voiceMemoPath = voiceMemoPath)
         }
     }
 
     fun updateNote(url: String, note: String?) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) { // Ensure this runs in the background thread
             repository.updateNote(url, note)
         }
     }
 
     fun updateVoiceMemo(url: String, path: String?) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             repository.updateVoiceMemo(url, path)
         }
     }
 
     fun deleteGame(game: ChessComGame) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             repository.delete(game)
         }
     }
