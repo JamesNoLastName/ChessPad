@@ -225,103 +225,110 @@ fun ChessComSyncScreen(
                         .fillMaxWidth()
                 ) {
                     items(pagedGames) { game ->
-                        Card(
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 4.dp),
-                            elevation = CardDefaults.cardElevation(2.dp)
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(modifier = Modifier.padding(8.dp)) {
-                                Text("${game.white} vs ${game.black}")
-                                Text("Result: ${game.whiteResult} - ${game.blackResult}")
-                                val uriHandler = LocalUriHandler.current
-                                TextButton(onClick = { uriHandler.openUri(game.url) }) {
-                                    Text("View on Chess.com", color = MaterialTheme.colorScheme.primary)
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween // To space them apart
-                                ) {
-                                    Button(onClick = {
-                                        editingNoteForUrl = game.url
-                                        noteText = notes[game.url] ?: ""
-                                    }) {
-                                        Text(if (notes[game.url].isNullOrBlank()) "Add Note" else "Edit Note")
+                            Card(
+                                modifier = Modifier.weight(1f),
+                                elevation = CardDefaults.cardElevation(2.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(8.dp)) {
+                                    Text("${game.white} vs ${game.black}")
+                                    Text("Result: ${game.whiteResult} - ${game.blackResult}")
+                                    val uriHandler = LocalUriHandler.current
+                                    TextButton(onClick = { uriHandler.openUri(game.url) }) {
+                                        Text("View on Chess.com", color = MaterialTheme.colorScheme.primary)
                                     }
-                                    Button(onClick = {
-                                        gameNotesViewModel.addGame(game)
-                                        coroutineScope.launch {
-                                            snackbarHostState.showSnackbar("Game added to notes!")
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        Button(onClick = {
+                                            editingNoteForUrl = game.url
+                                            noteText = notes[game.url] ?: ""
+                                        }) {
+                                            Text(if (notes[game.url].isNullOrBlank()) "Add Note" else "Edit Note")
                                         }
-                                    }) {
-                                        Text("+")
                                     }
-                                }
-                                if (!notes[game.url].isNullOrBlank()) {
-                                    Text("Note: ${notes[game.url]}", modifier = Modifier.padding(top = 4.dp))
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                // Voice Memo Buttons
-                                Row {
-                                    Button(onClick = {
-                                        if (isRecording) {
-                                            recorder?.apply {
-                                                stop()
-                                                release()
-                                            }
-                                            recorder = null
-                                            isRecording = false
-                                            recordingForUrl?.let { url ->
-                                                // Save file path
-                                                voiceMemos = voiceMemos.toMutableMap().apply {
-                                                    put(url, getVoiceMemoFilePath(context, url))
+                                    if (!notes[game.url].isNullOrBlank()) {
+                                        Text("Note: ${notes[game.url]}", modifier = Modifier.padding(top = 4.dp))
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    // Voice Memo Buttons
+                                    Row {
+                                        Button(onClick = {
+                                            if (isRecording) {
+                                                recorder?.apply {
+                                                    stop()
+                                                    release()
+                                                }
+                                                recorder = null
+                                                isRecording = false
+                                                recordingForUrl?.let { url ->
+                                                    // Save file path
+                                                    voiceMemos = voiceMemos.toMutableMap().apply {
+                                                        put(url, getVoiceMemoFilePath(context, url))
+                                                    }
+                                                }
+                                                recordingForUrl = null
+                                            } else {
+                                                val permission = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
+                                                if (permission == PermissionChecker.PERMISSION_GRANTED) {
+                                                    val filePath = getVoiceMemoFilePath(context, game.url)
+                                                    recorder = MediaRecorder().apply {
+                                                        setAudioSource(MediaRecorder.AudioSource.MIC)
+                                                        setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
+                                                        setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB)
+                                                        setOutputFile(filePath)
+                                                        prepare()
+                                                        start()
+                                                    }
+                                                    recordingForUrl = game.url
+                                                    isRecording = true
+                                                } else {
+                                                    // Show error or request permission
                                                 }
                                             }
-                                            recordingForUrl = null
-                                        } else {
-                                            val permission = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
-                                            if (permission == PermissionChecker.PERMISSION_GRANTED) {
-                                                val filePath = getVoiceMemoFilePath(context, game.url)
-                                                recorder = MediaRecorder().apply {
-                                                    setAudioSource(MediaRecorder.AudioSource.MIC)
-                                                    setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
-                                                    setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB)
-                                                    setOutputFile(filePath)
+                                        }) {
+                                            Text(if (isRecording && recordingForUrl == game.url) "Stop Recording" else "Record Voice Memo")
+                                        }
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Button(onClick = {
+                                            val filePath = voiceMemos[game.url]
+                                            if (!filePath.isNullOrBlank() && File(filePath).exists()) {
+                                                mediaPlayer?.release()
+                                                mediaPlayer = MediaPlayer().apply {
+                                                    setDataSource(filePath)
                                                     prepare()
                                                     start()
+                                                    setOnCompletionListener {
+                                                        playingForUrl = null
+                                                    }
                                                 }
-                                                recordingForUrl = game.url
-                                                isRecording = true
-                                            } else {
-                                                // Show error or request permission
+                                                playingForUrl = game.url
                                             }
+                                        }, enabled = voiceMemos[game.url]?.let { File(it).exists() } == true) {
+                                            Text(if (playingForUrl == game.url) "Playing..." else "Play Voice Memo")
                                         }
-                                    }) {
-                                        Text(if (isRecording && recordingForUrl == game.url) "Stop Recording" else "Record Voice Memo")
                                     }
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Button(onClick = {
-                                        val filePath = voiceMemos[game.url]
-                                        if (!filePath.isNullOrBlank() && File(filePath).exists()) {
-                                            mediaPlayer?.release()
-                                            mediaPlayer = MediaPlayer().apply {
-                                                setDataSource(filePath)
-                                                prepare()
-                                                start()
-                                                setOnCompletionListener {
-                                                    playingForUrl = null
-                                                }
-                                            }
-                                            playingForUrl = game.url
-                                        }
-                                    }, enabled = voiceMemos[game.url]?.let { File(it).exists() } == true) {
-                                        Text(if (playingForUrl == game.url) "Playing..." else "Play Voice Memo")
+                                    if (voiceMemos[game.url]?.let { File(it).exists() } == true) {
+                                        Text("Voice memo attached", modifier = Modifier.padding(top = 2.dp))
                                     }
                                 }
-                                if (voiceMemos[game.url]?.let { File(it).exists() } == true) {
-                                    Text("Voice memo attached", modifier = Modifier.padding(top = 2.dp))
-                                }
+                            }
+                            IconButton(
+                                onClick = {
+                                    gameNotesViewModel.addGame(game)
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar("Game added to notes!")
+                                    }
+                                },
+                                modifier = Modifier.padding(start = 4.dp)
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = "Add game")
                             }
                         }
                     }
@@ -345,7 +352,19 @@ fun ChessComSyncScreen(
                 onDismissRequest = { editingNoteForUrl = null },
                 confirmButton = {
                     Button(onClick = {
-                        notes = notes.toMutableMap().apply { put(editingNoteForUrl!!, noteText) }
+                        val url = editingNoteForUrl!!
+                        notes = notes.toMutableMap().apply { put(url, noteText) }
+                        coroutineScope.launch {
+                            // Persist in DB: if game exists in current list, insert/update with note
+                            val game = games.find { it.url == url }
+                            if (game != null) {
+                                gameNotesViewModel.addGameWithNote(game, noteText)
+                            } else {
+                                // If already in DB, just update note
+                                gameNotesViewModel.updateNote(url, noteText)
+                            }
+                            snackbarHostState.showSnackbar("Note saved")
+                        }
                         editingNoteForUrl = null
                     }) { Text("Save") }
                 },

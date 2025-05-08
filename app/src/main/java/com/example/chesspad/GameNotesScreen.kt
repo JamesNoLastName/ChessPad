@@ -173,9 +173,9 @@ fun GameNotesScreen(
             onDismissRequest = { editingNoteForUrl = null },
             confirmButton = {
                 Button(onClick = {
-                    // Update note in database
+                    val url = editingNoteForUrl ?: return@Button
                     coroutineScope.launch {
-                        gameNotesViewModel.updateNote(editingNoteForUrl!!, noteText)
+                        gameNotesViewModel.updateNote(url, noteText)
                         snackbarHostState.showSnackbar("Note saved")
                     }
                     editingNoteForUrl = null
