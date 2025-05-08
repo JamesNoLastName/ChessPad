@@ -2,6 +2,7 @@ package com.example.chesspad
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -9,8 +10,13 @@ import androidx.navigation.compose.composable
 
 @Composable
 fun AppNavGraph(navController: NavHostController) {
+    val context = LocalContext.current
     val summaryViewModel: SummaryViewModel = viewModel()
-    val gameNotesViewModel: GameNotesViewModel = viewModel()
+
+    // Use the factory for GameNotesViewModel
+    val gameNotesViewModel: GameNotesViewModel = viewModel(
+        factory = GameNotesViewModel.GameNotesViewModelFactory(context.applicationContext as ChessPadApplication)
+    )
 
     NavHost(navController = navController, startDestination = "splash") {
         composable("splash") {
@@ -48,8 +54,10 @@ fun AppNavGraph(navController: NavHostController) {
                 }
             )
         }
+
         composable("notes") {
-            val games = gameNotesViewModel.savedGames.collectAsState().value
+            // We use ViewModel to get saved games, so we don't need to pass them here
+            val games = emptyList<ChessComGame>() // This will be replaced by data from viewModel
             GameNotesScreen(
                 games = games,
                 onDone = { /* Handle onDone action */ },

@@ -9,30 +9,41 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.Image
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import java.io.File
+import android.media.MediaPlayer
+import kotlinx.coroutines.launch
 
 @Composable
 fun GameNotesScreen(
-    games: List<ChessComGame>,
+    games: List<ChessComGame>,  // This will be unused as we get data from viewModel
     onDone: () -> Unit,
-    navController: NavHostController // Required for navigation
+    navController: NavHostController
 ) {
-    var notes by remember { mutableStateOf(mutableMapOf<String, String>()) }
+    // Get application context for ViewModel factory
+    val context = LocalContext.current
+    val gameNotesViewModel: GameNotesViewModel = viewModel(
+        factory = GameNotesViewModel.GameNotesViewModelFactory(context.applicationContext as ChessPadApplication)
+    )
+
+    // Collect saved games from database via StateFlow
+    val savedGames = gameNotesViewModel.savedGames.collectAsState().value
+
     var editingNoteForUrl by remember { mutableStateOf<String?>(null) }
     var noteText by remember { mutableStateOf("") }
-    var isSearchSelected by remember { mutableStateOf(true) }
+    var isSearchSelected by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+
+    // Media player for voice memos
+    var mediaPlayer: MediaPlayer? by remember { mutableStateOf(null) }
+    var playingGameUrl by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -55,35 +66,99 @@ fun GameNotesScreen(
                 .padding(16.dp)
         ) {
             Text(
-                "Attach Notes to Your Games",
+                "Your Saved Games",
                 style = MaterialTheme.typography.headlineSmall
             )
             Spacer(modifier = Modifier.height(16.dp))
 
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-            ) {
-                items(games) { game ->
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp),
-                        elevation = CardDefaults.cardElevation(2.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(8.dp)) {
-                            Text("${game.white} vs ${game.black}")
-                            Text("Result: ${game.whiteResult} - ${game.blackResult}")
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Button(onClick = {
-                                editingNoteForUrl = game.url
-                                noteText = notes[game.url] ?: ""
-                            }) {
-                                Text(if (notes[game.url].isNullOrBlank()) "Add Note" else "Edit Note")
-                            }
-                            if (!notes[game.url].isNullOrBlank()) {
-                                Text("Note: ${notes[game.url]}", modifier = Modifier.padding(top = 4.dp))
+            if (savedGames.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("No saved games yet. Go to Sync to add games.")
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                ) {
+                    items(savedGames) { game ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            elevation = CardDefaults.cardElevation(2.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(8.dp)) {
+                                Text("${game.white} vs ${game.black}")
+                                Text("Result: ${game.whiteResult} - ${game.blackResult}")
+
+                                // Get the note and voice memo for this game
+                                var note by remember { mutableStateOf<String?>(null) }
+                                var voiceMemoPath by remember { mutableStateOf<String?>(null) }
+
+                                // Load note and voice memo from database
+                                LaunchedEffect(game.url) {
+                                    val gameEntity = gameNotesViewModel.repository.getGameByUrl(game.url)
+                                    note = gameEntity?.note
+                                    voiceMemoPath = gameEntity?.voiceMemoPath
+                                }
+
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Button(onClick = {
+                                        editingNoteForUrl = game.url
+                                        noteText = note ?: ""
+                                    }) {
+                                        Text(if (note.isNullOrBlank()) "Add Note" else "Edit Note")
+                                    }
+
+                                    Button(onClick = {
+                                        coroutineScope.launch {
+                                            gameNotesViewModel.deleteGame(game)
+                                            snackbarHostState.showSnackbar("Game removed from notes")
+                                        }
+                                    }) {
+                                        Text("Delete")
+                                    }
+                                }
+
+                                if (!note.isNullOrBlank()) {
+                                    Text("Note: $note", modifier = Modifier.padding(top = 4.dp))
+                                }
+
+                                // Voice memo playback section
+                                if (!voiceMemoPath.isNullOrBlank() && File(voiceMemoPath!!).exists()) {
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Button(onClick = {
+                                        if (playingGameUrl == game.url) {
+                                            // Stop playback
+                                            mediaPlayer?.stop()
+                                            mediaPlayer?.release()
+                                            mediaPlayer = null
+                                            playingGameUrl = null
+                                        } else {
+                                            // Start playback
+                                            mediaPlayer?.release()
+                                            mediaPlayer = MediaPlayer().apply {
+                                                setDataSource(voiceMemoPath)
+                                                prepare()
+                                                start()
+                                                setOnCompletionListener {
+                                                    playingGameUrl = null
+                                                }
+                                            }
+                                            playingGameUrl = game.url
+                                        }
+                                    }) {
+                                        Text(if (playingGameUrl == game.url) "Stop" else "Play Voice Memo")
+                                    }
+                                }
                             }
                         }
                     }
@@ -92,13 +167,17 @@ fun GameNotesScreen(
         }
     }
 
-    // Note dialog
+    // Note editing dialog
     if (editingNoteForUrl != null) {
         AlertDialog(
             onDismissRequest = { editingNoteForUrl = null },
             confirmButton = {
                 Button(onClick = {
-                    notes = notes.toMutableMap().apply { put(editingNoteForUrl!!, noteText) }
+                    // Update note in database
+                    coroutineScope.launch {
+                        gameNotesViewModel.updateNote(editingNoteForUrl!!, noteText)
+                        snackbarHostState.showSnackbar("Note saved")
+                    }
                     editingNoteForUrl = null
                 }) { Text("Save") }
             },
@@ -115,6 +194,14 @@ fun GameNotesScreen(
                 )
             }
         )
+    }
+
+    // Clean up media player when leaving the screen
+    DisposableEffect(Unit) {
+        onDispose {
+            mediaPlayer?.release()
+            mediaPlayer = null
+        }
     }
 }
 
