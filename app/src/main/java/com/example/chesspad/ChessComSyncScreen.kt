@@ -35,6 +35,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.PlayArrow
 import org.json.JSONObject
 import androidx.compose.ui.text.font.FontWeight
 import java.io.File
@@ -48,12 +50,18 @@ fun isNetworkAvailable(context: Context): Boolean {
     val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
 
     val hasValidated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-    val hasInternet = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    val hasInternetCapability = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    val hasTransport = capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
 
-    Log.d("ChessPad", "Network capabilities – validated=$hasValidated, internet=$hasInternet")
+    Log.d(
+        "ChessPad",
+        "Network capabilities – validated=$hasValidated, internet=$hasInternetCapability, transport=$hasTransport"
+    )
 
-    // Some networks (emulator, captive portal, blocked connectivity check) may miss VALIDATED even though internet works
-    return hasValidated || hasInternet
+    // Many emulator / captive-portal networks miss VALIDATED or INTERNET flags. If we at least have a transport, assume on-line.
+    return hasValidated || hasInternetCapability || hasTransport
 }
 
 data class ChessComGame(
@@ -259,7 +267,7 @@ fun ChessComSyncScreen(
                                     Spacer(modifier = Modifier.height(4.dp))
                                     // Voice Memo Buttons
                                     Row {
-                                        Button(onClick = {
+                                        IconButton(onClick = {
                                             if (isRecording) {
                                                 recorder?.apply {
                                                     stop()
@@ -272,6 +280,8 @@ fun ChessComSyncScreen(
                                                     voiceMemos = voiceMemos.toMutableMap().apply {
                                                         put(url, getVoiceMemoFilePath(context, url))
                                                     }
+                                                    // persist
+                                                    gameNotesViewModel.updateVoiceMemo(url, getVoiceMemoFilePath(context, url))
                                                 }
                                                 recordingForUrl = null
                                             } else {
@@ -289,14 +299,14 @@ fun ChessComSyncScreen(
                                                     recordingForUrl = game.url
                                                     isRecording = true
                                                 } else {
-                                                    // Show error or request permission
+                                                    // TODO request permission gracefully
                                                 }
                                             }
                                         }) {
-                                            Text(if (isRecording && recordingForUrl == game.url) "Stop Recording" else "Record Voice Memo")
+                                            Icon(if (isRecording && recordingForUrl == game.url) Icons.Default.Mic else Icons.Default.Mic, contentDescription = null)
                                         }
                                         Spacer(modifier = Modifier.width(8.dp))
-                                        Button(onClick = {
+                                        IconButton(onClick = {
                                             val filePath = voiceMemos[game.url]
                                             if (!filePath.isNullOrBlank() && File(filePath).exists()) {
                                                 mediaPlayer?.release()
@@ -311,7 +321,7 @@ fun ChessComSyncScreen(
                                                 playingForUrl = game.url
                                             }
                                         }, enabled = voiceMemos[game.url]?.let { File(it).exists() } == true) {
-                                            Text(if (playingForUrl == game.url) "Playing..." else "Play Voice Memo")
+                                            Icon(Icons.Default.PlayArrow, contentDescription = null)
                                         }
                                     }
                                     if (voiceMemos[game.url]?.let { File(it).exists() } == true) {
@@ -484,12 +494,6 @@ fun YearMonthDropdown(year: Int, month: Int, onYearChange: (Int) -> Unit, onMont
             }
         }
     }
-}
-
-fun getVoiceMemoFilePath(context: Context, url: String): String {
-    val fileName = url.hashCode().toString() + ".3gp"
-    val dir = context.getExternalFilesDir(Environment.DIRECTORY_MUSIC)
-    return File(dir, fileName).absolutePath
 }
 
 suspend fun fetchChessComGames(username: String, startYear: Int, startMonth: Int, endYear: Int, endMonth: Int, maxGames: Int = 100): Result<List<ChessComGame>> = withContext(Dispatchers.IO) {

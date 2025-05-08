@@ -67,6 +67,9 @@ dependencies {
     kapt(libs.androidx.room.compiler)  // for annotation processing
     implementation(libs.androidx.room.ktx) // for Flow and coroutines
 
+    // Compose Material Icons (extended set for Mic, PlayArrow, etc.)
+    implementation("androidx.compose.material:material-icons-extended")
+
     // ViewModel & Lifecycle
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
